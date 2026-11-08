@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  /* surfaces */
+  --color-paper: #F3F5F2;
+  --color-panel: #FFFFFF;
+  --color-line: #D5DCD8;
+
+  /* text */
+  --color-ink: #14262B;
+  --color-ink-muted: #4A5B60;
+
+  /* action */
+  --color-primary: #0E6F68;
+  --color-primary-ink: #FFFFFF;
+
+  /* the highlighter: "check this", used for nothing else */
+  --color-flag: #F4C531;
+  --color-flag-ink: #14262B;
+
+  /* stock status: always paired with an icon and a word */
+  --color-fresh: #2F7D4B;
+  --color-fresh-ink: #1E5A35;
+  --color-fresh-bg: #E3F1E8;
+  --color-soon: #9A5B00;
+  --color-soon-ink: #744400;
+  --color-soon-bg: #FBEBD0;
+  --color-expired: #B3261E;
+  --color-expired-ink: #8F1D17;
+  --color-expired-bg: #F8DEDB;
+
+  /* shape */
+  --radius-field: 4px;
+  --radius-panel: 8px;
+
+  /* type */
+  --font-display: "Archivo", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
