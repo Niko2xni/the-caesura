@@ -1,39 +1,26 @@
 import Link from 'next/link';
 import {
-  AlertOctagon,
-  AlertTriangle,
-  Clock,
   Layers,
   MinusCircle,
   PackagePlus,
   Trash2,
 } from 'lucide-react';
 import Decimal from 'decimal.js';
-import { getBusinessToday } from '@/lib/dates';
 import { formatQuantity } from '@/lib/units';
 import { requireSession } from '@/server/auth/guards';
-import { getExpiringBatchAlerts, getProductStockList } from '@/server/ledger/queries';
+import { getProductStockList, getTodayWorkLists } from '@/server/ledger/queries';
+import { TodayWorkLists } from '@/components/ledger/today-work-lists';
 
 export default async function TodayPage() {
   await requireSession();
 
-  const today = getBusinessToday();
-  const products = await getProductStockList();
-  const expiringAlerts = await getExpiringBatchAlerts(3);
-
-  const lowStockProducts = products.filter((p) => {
-    const usable = new Decimal(p.usableQuantity);
-    const reorder = new Decimal(p.reorderPoint);
-    return reorder.gt(0) && usable.lte(reorder);
-  });
-
-  const expiredStockProducts = products.filter((p) => {
-    const expired = new Decimal(p.expiredQuantity);
-    return expired.gt(0);
-  });
+  const [workLists, products] = await Promise.all([
+    getTodayWorkLists(),
+    getProductStockList(),
+  ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--color-line)] pb-4">
         <div>
@@ -41,11 +28,11 @@ export default async function TodayPage() {
             Today
           </h1>
           <p className="text-sm text-[var(--color-ink-muted)]">
-            Business date: <span className="font-semibold text-[var(--color-ink)]">{today}</span> (Asia/Manila)
+            Business date: <span className="font-semibold text-[var(--color-ink)]">{workLists.businessDate}</span> (Asia/Manila)
           </p>
         </div>
 
-        {/* Quick Action Buttons */}
+        {/* Quick Action Navigation */}
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/receive"
@@ -71,139 +58,13 @@ export default async function TodayPage() {
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-4 shadow-xs">
-          <div className="flex items-center justify-between text-sm text-[var(--color-ink-muted)]">
-            <span>Tracked Items</span>
-            <Layers className="h-4 w-4" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-[var(--color-ink)]">{products.length}</div>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">Active products in catalogue</p>
-        </div>
-
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-4 shadow-xs">
-          <div className="flex items-center justify-between text-sm text-amber-700">
-            <span>Low Stock</span>
-            <AlertTriangle className="h-4 w-4" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-amber-700">{lowStockProducts.length}</div>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">At or below reorder point</p>
-        </div>
-
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-4 shadow-xs">
-          <div className="flex items-center justify-between text-sm text-orange-700">
-            <span>Expiring Soon</span>
-            <Clock className="h-4 w-4" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-orange-700">{expiringAlerts.length}</div>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">Expiring within 3 days</p>
-        </div>
-
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-4 shadow-xs">
-          <div className="flex items-center justify-between text-sm text-rose-700">
-            <span>Expired Stock</span>
-            <AlertOctagon className="h-4 w-4" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-rose-700">{expiredStockProducts.length}</div>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">Past expiry on shelves</p>
-        </div>
-      </div>
-
-      {/* Actionable Alerts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Low Stock Alert */}
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
-            <h2 className="flex items-center gap-2 font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span>Low Stock Alerts</span>
-            </h2>
-            <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-200">
-              {lowStockProducts.length}
-            </span>
-          </div>
-
-          {lowStockProducts.length === 0 ? (
-            <p className="py-6 text-center text-sm text-[var(--color-ink-muted)]">
-              All stock levels are above their configured reorder points.
-            </p>
-          ) : (
-            <ul className="divide-y divide-[var(--color-line)] text-sm">
-              {lowStockProducts.map((p) => (
-                <li key={p.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <Link
-                      href={`/products/${p.id}`}
-                      className="font-medium text-[var(--color-ink)] hover:text-[var(--color-primary)] hover:underline"
-                    >
-                      {p.name}
-                    </Link>
-                    <div className="text-xs text-[var(--color-ink-muted)]">SKU: {p.sku}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-amber-700">
-                      {formatQuantity(p.usableQuantity, p.baseUnit)}
-                    </div>
-                    <div className="text-xs text-[var(--color-ink-muted)]">
-                      Reorder at: {formatQuantity(p.reorderPoint, p.baseUnit)}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Expiring Soon Alert */}
-        <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
-            <h2 className="flex items-center gap-2 font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-              <Clock className="h-4 w-4 text-orange-600" />
-              <span>Batches Expiring Soon (3 Days)</span>
-            </h2>
-            <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-900 border border-orange-200">
-              {expiringAlerts.length}
-            </span>
-          </div>
-
-          {expiringAlerts.length === 0 ? (
-            <p className="py-6 text-center text-sm text-[var(--color-ink-muted)]">
-              No active batches expiring within the next 3 days.
-            </p>
-          ) : (
-            <ul className="divide-y divide-[var(--color-line)] text-sm">
-              {expiringAlerts.map((alert) => (
-                <li key={alert.batchId} className="flex items-center justify-between py-3">
-                  <div>
-                    <Link
-                      href={`/products/${alert.productId}`}
-                      className="font-medium text-[var(--color-ink)] hover:text-[var(--color-primary)] hover:underline"
-                    >
-                      {alert.productName}
-                    </Link>
-                    <div className="text-xs text-[var(--color-ink-muted)]">
-                      Lot: {alert.lotCode || 'N/A'} • Exp: {alert.expiryDate}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-orange-700">
-                      {formatQuantity(alert.quantityOnHand, alert.baseUnit)}
-                    </div>
-                    <div className="text-xs font-medium text-orange-600">
-                      {alert.daysRemaining === 0
-                        ? 'Expires today'
-                        : alert.daysRemaining === 1
-                          ? 'Expires tomorrow'
-                          : `${alert.daysRemaining} days left`}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+      {/* The 3 Actionable Work Lists (FR-11): Write Off, Use First, Reorder */}
+      <TodayWorkLists
+        businessDate={workLists.businessDate}
+        expiredBatches={workLists.expiredBatches}
+        useSoonBatches={workLists.useSoonBatches}
+        reorderProducts={workLists.reorderProducts}
+      />
 
       {/* Stock Overview Table */}
       <div className="rounded-[var(--radius-panel)] border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs">
@@ -212,7 +73,7 @@ export default async function TodayPage() {
             <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
               Inventory On Hand
             </h2>
-            <p className="text-xs text-[var(--color-ink-muted)]">All current usable and expired stock</p>
+            <p className="text-xs text-[var(--color-ink-muted)]">Current stock levels across all tracked products</p>
           </div>
           <Link
             href="/catalogue"
@@ -286,7 +147,7 @@ export default async function TodayPage() {
                         >
                           {p.name}
                         </Link>
-                        <span className="block text-xs text-[var(--color-ink-muted)]">{p.sku}</span>
+                        <span className="block text-xs font-mono text-[var(--color-ink-muted)]">{p.sku}</span>
                       </td>
                       <td className="py-2.5 px-3 text-sm text-[var(--color-ink-muted)]">
                         {p.categoryName || '—'}
@@ -318,3 +179,4 @@ export default async function TodayPage() {
     </div>
   );
 }
+

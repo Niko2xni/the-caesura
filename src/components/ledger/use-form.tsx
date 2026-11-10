@@ -25,11 +25,18 @@ export interface ProductWithBatches {
 
 interface UseFormProps {
   products: ProductWithBatches[];
+  initialProductId?: string;
 }
 
-export function UseForm({ products }: UseFormProps) {
+export function UseForm({ products, initialProductId }: UseFormProps) {
   const router = useRouter();
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || '');
+
+  const resolvedProductId =
+    (initialProductId && products.some((p) => p.id === initialProductId) ? initialProductId : null) ||
+    products[0]?.id ||
+    '';
+
+  const [selectedProductId, setSelectedProductId] = useState(resolvedProductId);
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

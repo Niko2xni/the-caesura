@@ -5,8 +5,16 @@ import { requireSession } from '@/server/auth/guards';
 import { getProductStockList, getUsableBatchesForProduct } from '@/server/ledger/queries';
 import { UseForm, type ProductWithBatches } from '@/components/ledger/use-form';
 
-export default async function UsePage() {
+interface UsePageProps {
+  searchParams: Promise<{
+    productId?: string;
+  }>;
+}
+
+export default async function UsePage({ searchParams }: UsePageProps) {
   await requireSession();
+
+  const { productId } = await searchParams;
 
   const stockList = await getProductStockList();
 
@@ -57,7 +65,7 @@ export default async function UsePage() {
           </div>
         </div>
       ) : (
-        <UseForm products={availableProducts} />
+        <UseForm products={availableProducts} initialProductId={productId} />
       )}
     </div>
   );

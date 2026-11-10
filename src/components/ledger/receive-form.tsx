@@ -35,11 +35,30 @@ interface ReceiveFormProps {
   suppliers: SupplierOption[];
   products: ProductOption[];
   defaultDate: string;
+  initialSupplierId?: string;
+  initialProductId?: string;
 }
 
-export function ReceiveForm({ suppliers, products, defaultDate }: ReceiveFormProps) {
+export function ReceiveForm({
+  suppliers,
+  products,
+  defaultDate,
+  initialSupplierId,
+  initialProductId,
+}: ReceiveFormProps) {
   const router = useRouter();
-  const [supplierId, setSupplierId] = useState(suppliers[0]?.id || '');
+
+  const resolvedSupplierId =
+    (initialSupplierId && suppliers.some((s) => s.id === initialSupplierId) ? initialSupplierId : null) ||
+    suppliers[0]?.id ||
+    '';
+  const resolvedProductId =
+    (initialProductId && products.some((p) => p.id === initialProductId) ? initialProductId : null) ||
+    products[0]?.id ||
+    '';
+  const defaultProd = products.find((p) => p.id === resolvedProductId);
+
+  const [supplierId, setSupplierId] = useState(resolvedSupplierId);
   const [deliveryDate, setDeliveryDate] = useState(defaultDate);
   const [reference, setReference] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,9 +68,9 @@ export function ReceiveForm({ suppliers, products, defaultDate }: ReceiveFormPro
   const [lines, setLines] = useState<LineItemState[]>([
     {
       id: crypto.randomUUID(),
-      productId: products[0]?.id || '',
+      productId: resolvedProductId,
       packCount: '1',
-      packQuantity: '1000',
+      packQuantity: defaultProd?.baseUnit === 'each' ? '1' : '1000',
       lineCostPesos: '',
       expiryDate: '',
       lotCode: '',

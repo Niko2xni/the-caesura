@@ -6,8 +6,17 @@ import { listProducts } from '@/server/catalogue/products';
 import { listSuppliers } from '@/server/catalogue/suppliers';
 import { ReceiveForm } from '@/components/ledger/receive-form';
 
-export default async function ReceivePage() {
+interface ReceivePageProps {
+  searchParams: Promise<{
+    productId?: string;
+    supplierId?: string;
+  }>;
+}
+
+export default async function ReceivePage({ searchParams }: ReceivePageProps) {
   await requireSession();
+
+  const { productId, supplierId } = await searchParams;
 
   const today = getBusinessToday();
   const suppliers = await listSuppliers({ activeOnly: true });
@@ -66,6 +75,8 @@ export default async function ReceivePage() {
             shelfLifeDays: p.shelfLifeDays,
           }))}
           defaultDate={today}
+          initialSupplierId={supplierId}
+          initialProductId={productId}
         />
       )}
     </div>

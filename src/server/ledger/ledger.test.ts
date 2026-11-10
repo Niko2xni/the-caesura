@@ -7,7 +7,7 @@ import { receiveDelivery } from './receive-delivery';
 import { recordUsage } from './record-usage';
 import { recordWaste } from './record-waste';
 import { recordAdjustment } from './record-adjustment';
-import { getProductDetail, getProductStockList } from './queries';
+import { getProductDetail, getProductStockList, getTodayWorkLists } from './queries';
 
 const testRunId = crypto.randomUUID().slice(0, 8);
 
@@ -386,6 +386,78 @@ describe('Ledger integration tests against real PostgreSQL 17', () => {
     const list = await getProductStockList();
     const item = list.find((p) => p.id === productId);
     expect(item?.usableQuantity).toBe('650.000');
+  });
+
+  it('populates today actionable work lists: expired, use soon, and reorder', async () => {
+    const today = (await db.execute<{ today: string }>(sql`SELECT business_today()::text AS today`))[0].today;
+    const [year, month, day] = today.split('-').map(Number);
+    const useSoonDate = new Date(Date.UTC(year, month - 1, day + 2)).toISOString().slice(0, 10);
+    const expiredDate = new Date(Date.UTC(year, month - 1, day - 3)).toISOString().slice(0, 10);
+
+    const productId = await createProduct({
+      suffix: 'TODAY-WL',
+      baseUnit: 'ml',
+      tracksExpiry: true,
+      reorderPoint: '5000.000',
+    });
+
+    // Receive expired batch
+    const [expBatch] = await db
+      .insert(batches)
+      .values({
+        productId,
+        expiryDate: expiredDate,
+        expirySource: 'printed',
+        initialQuantity: '1000.000',
+      })
+      .returning({ id: batches.id });
+
+    await db.insert(stockMovements).values({
+      batchId: expBatch.id,
+      productId,
+      type: 'receipt',
+      quantity: '1000.000',
+      createdBy: testUserId,
+    });
+
+    // Receive use-soon batch
+    const [soonBatch] = await db
+      .insert(batches)
+      .values({
+        productId,
+        expiryDate: useSoonDate,
+        expirySource: 'printed',
+        initialQuantity: '1200.000',
+      })
+      .returning({ id: batches.id });
+
+    await db.insert(stockMovements).values({
+      batchId: soonBatch.id,
+      productId,
+      type: 'receipt',
+      quantity: '1200.000',
+      createdBy: testUserId,
+    });
+
+    const workLists = await getTodayWorkLists();
+
+    // 1. Expired batch check
+    const foundExpired = workLists.expiredBatches.find((b) => b.batchId === expBatch.id);
+    expect(foundExpired).toBeDefined();
+    expect(foundExpired?.quantityOnHand).toBe('1000.000');
+    expect(foundExpired?.daysExpired).toBeGreaterThanOrEqual(3);
+
+    // 2. Use-soon batch check
+    const foundUseSoon = workLists.useSoonBatches.find((b) => b.batchId === soonBatch.id);
+    expect(foundUseSoon).toBeDefined();
+    expect(foundUseSoon?.quantityOnHand).toBe('1200.000');
+    expect(foundUseSoon?.daysRemaining).toBe(2);
+
+    // 3. Reorder check (usable is 1200 <= 5000 reorder point)
+    const foundReorder = workLists.reorderProducts.find((p) => p.productId === productId);
+    expect(foundReorder).toBeDefined();
+    expect(foundReorder?.usableQuantity).toBe('1200.000');
+    expect(foundReorder?.reorderPoint).toBe('5000.000');
   });
 });
 

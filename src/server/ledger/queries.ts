@@ -1,6 +1,7 @@
 import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { categories, products, stockMovements, user } from '@/db/schema';
+import { categories, products, settings, stockMovements, user } from '@/db/schema';
+import { getBusinessToday } from '@/lib/dates';
 import type { BaseUnit } from '@/lib/units';
 
 export interface ProductStockSummary {
@@ -367,5 +368,205 @@ export async function getOnHandBatches(): Promise<OnHandBatchOption[]> {
     isExpired: Boolean(r.is_expired),
   }));
 }
+
+export interface ExpiredBatchWorkItem {
+  batchId: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  baseUnit: BaseUnit;
+  lotCode: string | null;
+  expiryDate: string;
+  quantityOnHand: string;
+  daysExpired: number;
+}
+
+export interface UseSoonBatchWorkItem {
+  batchId: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  baseUnit: BaseUnit;
+  lotCode: string | null;
+  expiryDate: string;
+  quantityOnHand: string;
+  daysRemaining: number;
+}
+
+export interface ReorderProductWorkItem {
+  productId: string;
+  productName: string;
+  productSku: string;
+  baseUnit: BaseUnit;
+  usableQuantity: string;
+  reorderPoint: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  supplierLeadTimeDays: number | null;
+}
+
+export interface TodayWorkListsData {
+  businessDate: string;
+  expiryWarningDays: number;
+  expiredBatches: ExpiredBatchWorkItem[];
+  useSoonBatches: UseSoonBatchWorkItem[];
+  reorderProducts: ReorderProductWorkItem[];
+}
+
+/**
+ * Real-time, uncached query fetching the 3 actionable work lists for the Today screen (FR-11):
+ * 1. Write off (expired batches with remaining stock)
+ * 2. Use first (batches expiring within expiry_warning_days)
+ * 3. Reorder (products at or below reorder point)
+ */
+export async function getTodayWorkLists(): Promise<TodayWorkListsData> {
+  const businessDate = getBusinessToday();
+
+  // Get warning days threshold from settings (default 3)
+  const [settingRow] = await db
+    .select({ expiryWarningDays: settings.expiryWarningDays })
+    .from(settings)
+    .where(eq(settings.id, 1));
+  const expiryWarningDays = settingRow?.expiryWarningDays ?? 3;
+
+  // 1. Expired batches on hand (Write off)
+  const expiredRows = await db.execute<{
+    batch_id: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    base_unit: BaseUnit;
+    lot_code: string | null;
+    expiry_date: string;
+    quantity_on_hand: string;
+    days_expired: number;
+  }>(sql`
+    SELECT
+      bs.batch_id,
+      bs.product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.base_unit,
+      b.lot_code,
+      bs.expiry_date::text AS expiry_date,
+      bs.quantity_on_hand::text AS quantity_on_hand,
+      (business_today() - bs.expiry_date)::int AS days_expired
+    FROM batch_stock bs
+    JOIN batches b ON b.id = bs.batch_id
+    JOIN products p ON p.id = bs.product_id
+    WHERE bs.quantity_on_hand > 0
+      AND bs.expiry_date IS NOT NULL
+      AND bs.expiry_date < business_today()
+    ORDER BY bs.expiry_date ASC, p.name ASC
+  `);
+
+  // 2. Batches expiring soon (Use first)
+  const useSoonRows = await db.execute<{
+    batch_id: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    base_unit: BaseUnit;
+    lot_code: string | null;
+    expiry_date: string;
+    quantity_on_hand: string;
+    days_remaining: number;
+  }>(sql`
+    SELECT
+      bs.batch_id,
+      bs.product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.base_unit,
+      b.lot_code,
+      bs.expiry_date::text AS expiry_date,
+      bs.quantity_on_hand::text AS quantity_on_hand,
+      (bs.expiry_date - business_today())::int AS days_remaining
+    FROM batch_stock bs
+    JOIN batches b ON b.id = bs.batch_id
+    JOIN products p ON p.id = bs.product_id
+    WHERE bs.quantity_on_hand > 0
+      AND bs.expiry_date IS NOT NULL
+      AND bs.expiry_date >= business_today()
+      AND bs.expiry_date <= (business_today() + (${expiryWarningDays} || ' days')::interval)::date
+    ORDER BY bs.expiry_date ASC, p.name ASC
+  `);
+
+  // 3. Products at or below reorder point (Reorder)
+  const reorderRows = await db.execute<{
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    base_unit: BaseUnit;
+    usable_quantity: string;
+    reorder_point: string;
+    supplier_id: string | null;
+    supplier_name: string | null;
+    supplier_lead_time_days: number | null;
+  }>(sql`
+    SELECT
+      p.id AS product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.base_unit,
+      coalesce(ps.usable_quantity, 0)::numeric(14,3)::text AS usable_quantity,
+      p.reorder_point::text AS reorder_point,
+      sup.id AS supplier_id,
+      sup.name AS supplier_name,
+      sup.lead_time_days AS supplier_lead_time_days
+    FROM products p
+    LEFT JOIN product_stock ps ON ps.product_id = p.id
+    LEFT JOIN LATERAL (
+      SELECT s.id, s.name, s.lead_time_days
+      FROM supplier_items si
+      JOIN suppliers s ON s.id = si.supplier_id
+      WHERE si.product_id = p.id AND s.is_active = true
+      LIMIT 1
+    ) sup ON true
+    WHERE p.is_active = true
+      AND p.reorder_point > 0
+      AND coalesce(ps.usable_quantity, 0) <= p.reorder_point
+    ORDER BY p.name ASC
+  `);
+
+  return {
+    businessDate,
+    expiryWarningDays,
+    expiredBatches: expiredRows.map((r) => ({
+      batchId: r.batch_id,
+      productId: r.product_id,
+      productName: r.product_name,
+      productSku: r.product_sku,
+      baseUnit: r.base_unit,
+      lotCode: r.lot_code,
+      expiryDate: r.expiry_date,
+      quantityOnHand: r.quantity_on_hand,
+      daysExpired: Number(r.days_expired),
+    })),
+    useSoonBatches: useSoonRows.map((r) => ({
+      batchId: r.batch_id,
+      productId: r.product_id,
+      productName: r.product_name,
+      productSku: r.product_sku,
+      baseUnit: r.base_unit,
+      lotCode: r.lot_code,
+      expiryDate: r.expiry_date,
+      quantityOnHand: r.quantity_on_hand,
+      daysRemaining: Number(r.days_remaining),
+    })),
+    reorderProducts: reorderRows.map((r) => ({
+      productId: r.product_id,
+      productName: r.product_name,
+      productSku: r.product_sku,
+      baseUnit: r.base_unit,
+      usableQuantity: r.usable_quantity,
+      reorderPoint: r.reorder_point,
+      supplierId: r.supplier_id,
+      supplierName: r.supplier_name,
+      supplierLeadTimeDays: r.supplier_lead_time_days !== null ? Number(r.supplier_lead_time_days) : null,
+    })),
+  };
+}
+
 
 
