@@ -7,6 +7,7 @@ import {
   Layers,
   MinusCircle,
   PackagePlus,
+  Settings,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ const navItems = [
   { href: '/waste', label: 'Waste', icon: Trash2 },
   { href: '/catalogue', label: 'Catalogue', icon: Layers },
   { href: '/suppliers', label: 'Suppliers', icon: Users },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function NavBar({ user }: NavBarProps) {
