@@ -257,3 +257,4 @@ export function CreateProductModal({ isOpen, onClose, categories, onSuccess }: C
     </div>
   );
 }
+

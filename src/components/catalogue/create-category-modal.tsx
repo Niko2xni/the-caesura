@@ -136,3 +136,4 @@ export function CreateCategoryModal({ isOpen, onClose, onSuccess }: CreateCatego
     </div>
   );
 }
+

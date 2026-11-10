@@ -116,3 +116,4 @@ export function NavBar({ user }: NavBarProps) {
     </header>
   );
 }
+

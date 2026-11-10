@@ -190,3 +190,4 @@ export function AdjustStockModal({
     </div>
   );
 }
+

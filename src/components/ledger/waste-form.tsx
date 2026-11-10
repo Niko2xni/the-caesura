@@ -212,3 +212,4 @@ export function WasteForm({ batches }: WasteFormProps) {
     </form>
   );
 }
+

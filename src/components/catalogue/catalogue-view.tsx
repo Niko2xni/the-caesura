@@ -234,3 +234,4 @@ export function CatalogueView({ products, categories, isAdmin }: CatalogueViewPr
     </div>
   );
 }
+

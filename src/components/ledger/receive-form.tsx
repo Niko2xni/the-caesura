@@ -432,3 +432,4 @@ export function ReceiveForm({ suppliers, products, defaultDate }: ReceiveFormPro
     </form>
   );
 }
+
