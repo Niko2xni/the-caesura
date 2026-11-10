@@ -138,3 +138,4 @@ export async function recordAdjustmentAction(input: unknown): Promise<RecordAdju
     return { ok: false, code: 'server_error', error: 'An unexpected error occurred while recording adjustment.' };
   }
 }
+

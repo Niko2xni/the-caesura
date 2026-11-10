@@ -96,3 +96,4 @@ export type ReceiveDeliveryParsed = z.infer<typeof receiveDeliverySchema>;
 export type RecordUsageParsed = z.infer<typeof recordUsageSchema>;
 export type RecordWasteParsed = z.infer<typeof recordWasteSchema>;
 export type RecordAdjustmentParsed = z.infer<typeof recordAdjustmentSchema>;
+
