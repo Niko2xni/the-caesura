@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Trash2 } from 'lucide-react';
+import { PieChart, Trash2 } from 'lucide-react';
 import { requireSession } from '@/server/auth/guards';
 import { getOnHandBatches } from '@/server/ledger/queries';
 import { WasteForm } from '@/components/ledger/waste-form';
@@ -11,6 +11,21 @@ export default async function WastePage() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
+      {/* Sub-nav Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--color-line)] pb-3">
+        <span className="flex items-center gap-1.5 rounded-[var(--radius-field)] bg-[var(--color-panel)] px-3 py-1.5 text-sm font-semibold text-[var(--color-primary)] shadow-xs border border-[var(--color-line)]">
+          <Trash2 className="h-4 w-4" />
+          <span>Record Waste</span>
+        </span>
+        <Link
+          href="/waste/report"
+          className="flex items-center gap-1.5 rounded-[var(--radius-field)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-muted)] hover:bg-[var(--color-panel)] transition-colors"
+        >
+          <PieChart className="h-4 w-4" />
+          <span>Waste Financial Report</span>
+        </Link>
+      </div>
+
       <div className="border-b border-[var(--color-line)] pb-4">
         <h1 className="flex items-center gap-2 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-[var(--color-ink)]">
           <Trash2 className="h-6 w-6 text-rose-700" />
@@ -40,4 +55,3 @@ export default async function WastePage() {
     </div>
   );
 }
-
