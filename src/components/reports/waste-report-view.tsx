@@ -374,3 +374,4 @@ export function WasteReportView({ data }: WasteReportViewProps) {
     </div>
   );
 }
+

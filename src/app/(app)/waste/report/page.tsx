@@ -28,3 +28,4 @@ export default async function WasteReportPage({ searchParams }: WasteReportPageP
 
   return <WasteReportView data={reportData} />;
 }
+

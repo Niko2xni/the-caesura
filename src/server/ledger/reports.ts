@@ -240,3 +240,4 @@ export async function getWasteReport(filters?: WasteReportFilters): Promise<Wast
     incidents,
   };
 }
+

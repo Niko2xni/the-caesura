@@ -146,3 +146,4 @@ describe('Waste Reporting Integration Tests', () => {
     expect(report.incidents[0]?.wasteReason).toBe('spoiled');
   });
 });
+
