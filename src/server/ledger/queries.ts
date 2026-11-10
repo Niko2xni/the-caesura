@@ -1,6 +1,6 @@
 import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { products, stockMovements, user } from '@/db/schema';
+import { categories, products, stockMovements, user } from '@/db/schema';
 import type { BaseUnit } from '@/lib/units';
 
 export interface ProductStockSummary {
@@ -140,8 +140,23 @@ export async function getUsableBatchesForProduct(productId: string): Promise<Usa
  */
 export async function getProductDetail(productId: string) {
   const [product] = await db
-    .select()
+    .select({
+      id: products.id,
+      sku: products.sku,
+      name: products.name,
+      nameNormalized: products.nameNormalized,
+      categoryId: products.categoryId,
+      categoryName: categories.name,
+      baseUnit: products.baseUnit,
+      tracksExpiry: products.tracksExpiry,
+      shelfLifeDays: products.shelfLifeDays,
+      reorderPoint: products.reorderPoint,
+      isActive: products.isActive,
+      createdAt: products.createdAt,
+      updatedAt: products.updatedAt,
+    })
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(eq(products.id, productId));
 
   if (!product) {
@@ -241,4 +256,116 @@ export async function getProductDetail(productId: string) {
     ),
   };
 }
+
+export interface ExpiringBatchAlert {
+  batchId: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  baseUnit: BaseUnit;
+  lotCode: string | null;
+  expiryDate: string;
+  quantityOnHand: string;
+  daysRemaining: number;
+}
+
+export async function getExpiringBatchAlerts(daysAhead: number = 3): Promise<ExpiringBatchAlert[]> {
+  const rows = await db.execute<{
+    batch_id: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    base_unit: BaseUnit;
+    lot_code: string | null;
+    expiry_date: string;
+    quantity_on_hand: string;
+    days_remaining: number;
+  }>(sql`
+    SELECT
+      bs.batch_id,
+      bs.product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.base_unit,
+      b.lot_code,
+      bs.expiry_date::text AS expiry_date,
+      bs.quantity_on_hand::text AS quantity_on_hand,
+      (bs.expiry_date - business_today())::int AS days_remaining
+    FROM batch_stock bs
+    JOIN batches b ON b.id = bs.batch_id
+    JOIN products p ON p.id = bs.product_id
+    WHERE bs.quantity_on_hand > 0
+      AND bs.expiry_date IS NOT NULL
+      AND bs.expiry_date >= business_today()
+      AND bs.expiry_date <= (business_today() + (${daysAhead} || ' days')::interval)::date
+    ORDER BY bs.expiry_date ASC, p.name ASC
+  `);
+
+  return rows.map((r) => ({
+    batchId: r.batch_id,
+    productId: r.product_id,
+    productName: r.product_name,
+    productSku: r.product_sku,
+    baseUnit: r.base_unit,
+    lotCode: r.lot_code,
+    expiryDate: r.expiry_date,
+    quantityOnHand: r.quantity_on_hand,
+    daysRemaining: Number(r.days_remaining),
+  }));
+}
+
+export interface OnHandBatchOption {
+  batchId: string;
+  productId: string;
+  productName: string;
+  productSku: string;
+  baseUnit: BaseUnit;
+  lotCode: string | null;
+  expiryDate: string | null;
+  quantityOnHand: string;
+  isExpired: boolean;
+}
+
+export async function getOnHandBatches(): Promise<OnHandBatchOption[]> {
+  const rows = await db.execute<{
+    batch_id: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    base_unit: BaseUnit;
+    lot_code: string | null;
+    expiry_date: string | null;
+    quantity_on_hand: string;
+    is_expired: boolean;
+  }>(sql`
+    SELECT
+      bs.batch_id,
+      bs.product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.base_unit,
+      b.lot_code,
+      bs.expiry_date::text AS expiry_date,
+      bs.quantity_on_hand::text AS quantity_on_hand,
+      (bs.expiry_date IS NOT NULL AND bs.expiry_date < business_today()) AS is_expired
+    FROM batch_stock bs
+    JOIN batches b ON b.id = bs.batch_id
+    JOIN products p ON p.id = bs.product_id
+    WHERE bs.quantity_on_hand > 0
+    ORDER BY p.name ASC, bs.expiry_date NULLS LAST, b.received_at ASC
+  `);
+
+  return rows.map((r) => ({
+    batchId: r.batch_id,
+    productId: r.product_id,
+    productName: r.product_name,
+    productSku: r.product_sku,
+    baseUnit: r.base_unit,
+    lotCode: r.lot_code,
+    expiryDate: r.expiry_date,
+    quantityOnHand: r.quantity_on_hand,
+    isExpired: Boolean(r.is_expired),
+  }));
+}
+
 
