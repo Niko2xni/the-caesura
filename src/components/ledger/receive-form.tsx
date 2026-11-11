@@ -833,14 +833,16 @@ export function ReceiveForm({
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
                         {/* Product selection */}
                         <div className="sm:col-span-4">
-                          <label className="block text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            Product <span className="text-rose-500">*</span>
+                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                            <span>
+                              Product <span className="text-rose-500">*</span>
+                            </span>
                           </label>
                           <select
                             value={line.productId}
                             onChange={(e) => updateLine(line.id, { productId: e.target.value })}
                             required
-                            className="mt-1 block w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           >
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
@@ -852,8 +854,10 @@ export function ReceiveForm({
 
                         {/* Packs */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            Packs <span className="text-rose-500">*</span>
+                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                            <span>
+                              Packs <span className="text-rose-500">*</span>
+                            </span>
                           </label>
                           <input
                             type="number"
@@ -862,14 +866,17 @@ export function ReceiveForm({
                             value={line.packCount}
                             onChange={(e) => updateLine(line.id, { packCount: e.target.value })}
                             required
-                            className="mt-1 block w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           />
                         </div>
 
                         {/* Qty per pack */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            Qty / Pack ({baseUnit})
+                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                            <span className="truncate">Qty / Pack</span>
+                            <span className="text-[10px] normal-case text-[var(--color-ink-muted)] font-normal leading-none">
+                              ({baseUnit})
+                            </span>
                           </label>
                           <input
                             type="number"
@@ -878,14 +885,14 @@ export function ReceiveForm({
                             value={line.packQuantity}
                             onChange={(e) => updateLine(line.id, { packQuantity: e.target.value })}
                             required
-                            className="mt-1 block w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           />
                         </div>
 
                         {/* Line Cost (PHP) */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            Cost (PHP)
+                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                            <span>Cost (PHP)</span>
                           </label>
                           <input
                             type="number"
@@ -894,21 +901,21 @@ export function ReceiveForm({
                             placeholder="e.g. 570.00"
                             value={line.lineCostPesos}
                             onChange={(e) => updateLine(line.id, { lineCostPesos: e.target.value })}
-                            className="mt-1 block w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-1.5 text-xs text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           />
                         </div>
 
                         {/* Expiry Date */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            Expiry {tracksExpiry && <span className="text-rose-500">*</span>}
+                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                            <span>Expiry {tracksExpiry && <span className="text-rose-500">*</span>}</span>
                           </label>
                           <input
                             type="date"
                             value={line.expiryDate}
                             onChange={(e) => updateLine(line.id, { expiryDate: e.target.value })}
                             required={tracksExpiry && prod?.shelfLifeDays === null}
-                            className="mt-1 block w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 py-1.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           />
                         </div>
                       </div>
