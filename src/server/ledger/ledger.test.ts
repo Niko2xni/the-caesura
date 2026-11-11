@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { client, db } from '@/db';
-import { batches, products, receipts, settings, stockMovements, suppliers, user } from '@/db/schema';
+import { batches, products, receiptLines, receipts, settings, stockMovements, supplierItems, suppliers, user } from '@/db/schema';
 import { receiveDelivery } from './receive-delivery';
 import { recordUsage } from './record-usage';
 import { recordWaste } from './record-waste';
@@ -145,6 +145,109 @@ describe('Ledger integration tests against real PostgreSQL 17', () => {
     if (!res.ok) {
       expect(res.code).toBe('missing_expiry');
     }
+  });
+
+  it('atomically creates and reuses supplier_items alias when saveSupplierAlias is requested during intake', async () => {
+    const productId = await createProduct({ suffix: 'LEARNING-LOOP' });
+    const [{ today }] = await db.execute<{ today: string }>(sql`SELECT business_today()::text AS today`);
+    const rawPrintedDesc = `Barista Oat Milk 1L Box ${testRunId}`;
+
+    const res = await receiveDelivery({
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      source: 'ai_extraction',
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId,
+          packCount: '6',
+          packQuantity: '1000',
+          expiryDate: today,
+          expirySource: 'printed',
+          matchMethod: 'manual',
+          saveSupplierAlias: true,
+          descriptionPrinted: rawPrintedDesc,
+          supplierSku: 'B-OAT-1L',
+          packLabel: '1L Box',
+          lineCostCents: 120000,
+        },
+      ],
+    });
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    // Verify supplier_items entry was created with normalized description
+    const [createdAlias] = await db
+      .select()
+      .from(supplierItems)
+      .where(
+        and(
+          eq(supplierItems.supplierId, testSupplierId),
+          eq(supplierItems.productId, productId),
+        ),
+      );
+
+    expect(createdAlias).toBeDefined();
+    expect(createdAlias?.description).toBe(rawPrintedDesc);
+    expect(createdAlias?.descriptionNormalized).toBe(rawPrintedDesc.toLowerCase());
+    expect(createdAlias?.supplierSku).toBe('B-OAT-1L');
+    expect(createdAlias?.packLabel).toBe('1L Box');
+    expect(createdAlias?.packQuantity).toBe('1000.000');
+
+    // Verify receipt_line links to the created supplier_item_id
+    const [lineRecord] = await db
+      .select()
+      .from(receiptLines)
+      .where(eq(receiptLines.receiptId, res.data.receiptId));
+
+    expect(lineRecord).toBeDefined();
+    expect(lineRecord?.supplierItemId).toBe(createdAlias?.id);
+
+    // Second delivery: same rawPrintedDesc should reuse the existing alias rather than creating a duplicate
+    const res2 = await receiveDelivery({
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      source: 'ai_extraction',
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId,
+          packCount: '3',
+          packQuantity: '1000',
+          expiryDate: today,
+          expirySource: 'printed',
+          matchMethod: 'manual',
+          saveSupplierAlias: true,
+          descriptionPrinted: rawPrintedDesc,
+          packLabel: '1L Box',
+        },
+      ],
+    });
+
+    expect(res2.ok).toBe(true);
+    if (!res2.ok) return;
+
+    const matchingAliases = await db
+      .select()
+      .from(supplierItems)
+      .where(
+        and(
+          eq(supplierItems.supplierId, testSupplierId),
+          eq(supplierItems.productId, productId),
+        ),
+      );
+
+    expect(matchingAliases).toHaveLength(1);
+
+    const [lineRecord2] = await db
+      .select()
+      .from(receiptLines)
+      .where(eq(receiptLines.receiptId, res2.data.receiptId));
+
+    expect(lineRecord2?.supplierItemId).toBe(createdAlias?.id);
   });
 
   it('allocates usage by FEFO, skips expired batches, shares movement_group_id, and writes nothing on shortfall', async () => {

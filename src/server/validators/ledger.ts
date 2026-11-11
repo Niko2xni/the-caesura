@@ -43,6 +43,9 @@ export const receiveLineSchema = z.object({
   expirySource: z.enum(['printed', 'estimated', 'manual']).nullable().optional(),
   lotCode: z.string().trim().max(100).nullable().optional(),
   matchMethod: z.enum(['exact', 'suggested', 'manual', 'new_item']).default('manual'),
+  saveSupplierAlias: z.boolean().default(false),
+  supplierSku: z.string().trim().max(100).nullable().optional(),
+  packLabel: z.string().trim().max(100).nullable().optional(),
 });
 
 export const receiveDeliverySchema = z.object({

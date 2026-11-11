@@ -23,7 +23,7 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
   const products = await listProducts({ activeOnly: true });
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div className="border-b border-[var(--color-line)] pb-4">
         <h1 className="flex items-center gap-2 font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-[var(--color-ink)]">
           <PackagePlus className="h-6 w-6 text-[var(--color-primary)]" />

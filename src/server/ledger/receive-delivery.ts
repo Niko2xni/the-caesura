@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
 import Decimal from 'decimal.js';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { batches, products, receiptLines, receipts, stockMovements, suppliers } from '@/db/schema';
+import { batches, products, receiptLines, receipts, stockMovements, supplierItems, suppliers } from '@/db/schema';
 import { addDays } from '@/lib/dates';
 import { computeUnitCost } from '@/lib/money';
+import { normalizeText } from '@/lib/normalise';
 
 export interface ReceiveLineInput {
   productId: string;
@@ -17,6 +18,9 @@ export interface ReceiveLineInput {
   expirySource?: 'printed' | 'estimated' | 'manual' | null;
   lotCode?: string | null;
   matchMethod: 'exact' | 'suggested' | 'manual' | 'new_item';
+  saveSupplierAlias?: boolean;
+  supplierSku?: string | null;
+  packLabel?: string | null;
 }
 
 export interface ReceiveDeliveryInput {
@@ -187,10 +191,45 @@ export async function receiveDelivery(input: ReceiveDeliveryInput): Promise<Rece
           })
           .returning({ id: batches.id });
 
+        let resolvedSupplierItemId = line.supplierItemId ?? null;
+
+        // Learning loop: optionally save newly mapped supplier item alias
+        if (line.saveSupplierAlias && line.descriptionPrinted?.trim()) {
+          const normDesc = normalizeText(line.descriptionPrinted);
+          const [existingItem] = await tx
+            .select({ id: supplierItems.id })
+            .from(supplierItems)
+            .where(
+              and(
+                eq(supplierItems.supplierId, input.supplierId),
+                eq(supplierItems.descriptionNormalized, normDesc),
+              ),
+            );
+
+          if (existingItem) {
+            resolvedSupplierItemId = existingItem.id;
+          } else {
+            const [newItem] = await tx
+              .insert(supplierItems)
+              .values({
+                supplierId: input.supplierId,
+                productId: line.productId,
+                supplierSku: line.supplierSku?.trim() || null,
+                description: line.descriptionPrinted.trim(),
+                descriptionNormalized: normDesc,
+                packLabel: line.packLabel?.trim() || 'Pack',
+                packQuantity: new Decimal(line.packQuantity).toFixed(3),
+                lastPackCostCents: line.lineCostCents ?? null,
+              })
+              .returning({ id: supplierItems.id });
+            resolvedSupplierItemId = newItem.id;
+          }
+        }
+
         await tx.insert(receiptLines).values({
           receiptId: receipt.id,
           batchId: batch.id,
-          supplierItemId: line.supplierItemId ?? null,
+          supplierItemId: resolvedSupplierItemId,
           descriptionPrinted: line.descriptionPrinted ?? null,
           packCount: new Decimal(line.packCount).toFixed(3),
           packQuantity: new Decimal(line.packQuantity).toFixed(3),
