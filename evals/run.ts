@@ -217,11 +217,17 @@ async function run() {
     }
   }
 
+  const isLiveCall = !isReplay && Boolean(process.env.AI_GATEWAY_API_KEY);
+  const modeLabel = isLiveCall ? `Live AI Gateway (${modelId})` : 'Offline Replay / Deterministic Fixture Benchmark';
+
   console.log(`\n=======================================================`);
   console.log(` The Caesura — AI Document Intake Evaluation Suite`);
-  console.log(` Model:    ${modelId}`);
-  console.log(` Mode:     ${isReplay ? 'Replay (Recorded Ground Truth)' : 'Live Model / Replay Fallback'}`);
-  console.log(` Timezone: Asia/Manila (PHT)`);
+  console.log(` Target Model:   ${modelId}`);
+  console.log(` Execution Mode: ${modeLabel}`);
+  console.log(` Timezone:       Asia/Manila (PHT)`);
+  if (!isLiveCall) {
+    console.log(` Notice:         No AI_GATEWAY_API_KEY configured. Running in offline replay benchmark mode to test normalization, Jaccard trigram matching, and plausibility checks without API tokens.`);
+  }
   console.log(`=======================================================\n`);
 
   const fixtureFiles = fs
@@ -387,18 +393,26 @@ async function run() {
   // Generate Markdown report
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const cleanModelName = modelId.replace(/[/\\:]/g, '_');
-  const reportFilename = `eval-${cleanModelName}-${timestamp}.md`;
+  const modeSlug = isLiveCall ? `live-${cleanModelName}` : 'offline-replay-benchmark';
+  const reportFilename = `eval-${modeSlug}-${timestamp}.md`;
   const reportPath = path.join(REPORTS_DIR, reportFilename);
 
   const markdownReport = `# AI Document Intake Evaluation Report
 
 - **Date:** ${new Date().toISOString()} (Asia/Manila)
-- **Model:** \`${modelId}\`
+- **Execution Mode:** ${isLiveCall ? `Live AI Gateway (${modelId})` : 'Offline Replay / Deterministic Fixture Benchmark (Zero live API calls)'}
+- **Target Model Architecture:** \`${modelId}\`
 - **Total Fixtures:** ${totalFixtures}
 - **Pass Rate:** ${passedFixtures}/${totalFixtures} (${((passedFixtures / (totalFixtures || 1)) * 100).toFixed(1)}%)
 - **Target Accuracy Check:**
   - SKU Match Rate: **${(avgSkus * 100).toFixed(1)}%** (Target: $\\ge 90\\%$)
   - Pack Count Rate: **${(avgPacks * 100).toFixed(1)}%** (Target: $\\ge 95\\%$)
+
+${
+  isLiveCall
+    ? `> [!NOTE]\n> Inferences were performed live via the Vercel AI Gateway against \`${modelId}\`.`
+    : `> [!NOTE]\n> This benchmark ran in offline deterministic mode using synthetic fixture transcriptions to verify schema parsing, currency centavo conversion, Jaccard trigram matching, and deterministic plausibility checks without consuming live API tokens.`
+}
 
 ## Fixture Results Table
 
