@@ -1,0 +1,32 @@
+{
+  "fixtureId": "dr-clean-sweetcraft-syrups",
+  "category": "clean",
+  "description": "Sweet Craft Syrups 3-line delivery note with syrups and sauces",
+  "expectedSupplierName": "Sweet Craft Syrups & Flavoring",
+  "expectedDeliveryDate": "2026-11-08",
+  "expectedReference": "DN-9943",
+  "expectedTotalCents": 335000,
+  "lines": [
+    {
+      "description": "Artisan Vanilla Syrup 750ml",
+      "expectedSku": "SYRUP-VAN-750",
+      "packCount": 3,
+      "lineCostCents": 135000,
+      "expiryDate": null
+    },
+    {
+      "description": "Sea Salt Caramel Syrup 750ml",
+      "expectedSku": "SYRUP-CAR-750",
+      "packCount": 2,
+      "lineCostCents": 90000,
+      "expiryDate": null
+    },
+    {
+      "description": "Dark Chocolate Sauce 1L",
+      "expectedSku": "SAUCE-CHOC-1L",
+      "packCount": 2,
+      "lineCostCents": 110000,
+      "expiryDate": null
+    }
+  ]
+}

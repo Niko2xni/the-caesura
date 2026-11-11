@@ -12,7 +12,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx src/db/seed/index.ts"
+    "db:seed": "tsx src/db/seed/index.ts",
+    "eval:generate": "tsx evals/generate-fixtures.ts",
+    "eval:extraction": "tsx evals/run.ts"
   },
   "dependencies": {
     "ai": "7.0.164",

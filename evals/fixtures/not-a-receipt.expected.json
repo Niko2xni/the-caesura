@@ -1,0 +1,11 @@
+{
+  "fixtureId": "not-a-receipt",
+  "category": "negative",
+  "description": "Photo of a cup of café latte on wooden table (not a delivery document)",
+  "expectedSupplierName": null,
+  "expectedDeliveryDate": null,
+  "expectedReference": null,
+  "expectedTotalCents": null,
+  "isNegativeTest": true,
+  "lines": []
+}

@@ -1,0 +1,25 @@
+{
+  "fixtureId": "si-clean-northern-dairy-vat-ex",
+  "category": "clean",
+  "description": "Northern Dairy Sales Invoice with VAT breakdown and TIN",
+  "expectedSupplierName": "Northern Dairy Supply",
+  "expectedDeliveryDate": "2026-11-09",
+  "expectedReference": "SI-49210",
+  "expectedTotalCents": 537600,
+  "lines": [
+    {
+      "description": "Fresh Dairy Barista Milk 1000ml",
+      "expectedSku": "MILK-WM-1L",
+      "packCount": 16,
+      "lineCostCents": 240000,
+      "expiryDate": null
+    },
+    {
+      "description": "Oat Milk Barista Edition 1L",
+      "expectedSku": "MILK-OAT-1L",
+      "packCount": 12,
+      "lineCostCents": 240000,
+      "expiryDate": null
+    }
+  ]
+}

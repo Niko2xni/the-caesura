@@ -1,0 +1,25 @@
+{
+  "fixtureId": "dr-clean-bukidnon-vat-inc",
+  "category": "clean",
+  "description": "Clean Bukidnon Coffee DR with VAT inclusive prices and reference",
+  "expectedSupplierName": "Bukidnon Specialty Coffee",
+  "expectedDeliveryDate": "2026-11-10",
+  "expectedReference": "DR-88214",
+  "expectedTotalCents": 410000,
+  "lines": [
+    {
+      "description": "Bukidnon Arabica Honey Process 1kg",
+      "expectedSku": "BEANS-BKD-1KG",
+      "packCount": 3,
+      "lineCostCents": 255000,
+      "expiryDate": null
+    },
+    {
+      "description": "Barista Whole Milk 1L",
+      "expectedSku": "MILK-WM-1L",
+      "packCount": 10,
+      "lineCostCents": 155000,
+      "expiryDate": null
+    }
+  ]
+}

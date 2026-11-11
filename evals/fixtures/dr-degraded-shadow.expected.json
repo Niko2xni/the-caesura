@@ -1,0 +1,18 @@
+{
+  "fixtureId": "dr-degraded-shadow",
+  "category": "degraded",
+  "description": "Shadowed lighting and angle tilt simulating real café counter phone photo",
+  "expectedSupplierName": "Sweet Craft Syrups & Flavoring",
+  "expectedDeliveryDate": "2026-11-05",
+  "expectedReference": "DR-7110",
+  "expectedTotalCents": 180000,
+  "lines": [
+    {
+      "description": "Artisan Vanilla Syrup 750ml",
+      "expectedSku": "SYRUP-VAN-750",
+      "packCount": 4,
+      "lineCostCents": 180000,
+      "expiryDate": null
+    }
+  ]
+}

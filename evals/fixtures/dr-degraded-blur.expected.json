@@ -1,0 +1,18 @@
+{
+  "fixtureId": "dr-degraded-blur",
+  "category": "degraded",
+  "description": "Slight handheld camera motion blur simulation",
+  "expectedSupplierName": "Bukidnon Specialty Coffee",
+  "expectedDeliveryDate": "2026-11-04",
+  "expectedReference": "DR-4402",
+  "expectedTotalCents": 170000,
+  "lines": [
+    {
+      "description": "Bukidnon Arabica Honey Process 1kg",
+      "expectedSku": "BEANS-BKD-1KG",
+      "packCount": 2,
+      "lineCostCents": 170000,
+      "expiryDate": null
+    }
+  ]
+}

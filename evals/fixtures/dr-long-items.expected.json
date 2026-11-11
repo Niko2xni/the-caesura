@@ -1,0 +1,46 @@
+{
+  "fixtureId": "dr-long-items",
+  "category": "supplier_variation",
+  "description": "Dense 5-line delivery note testing extraction token count and ordering",
+  "expectedSupplierName": "Northern Dairy Supply",
+  "expectedDeliveryDate": "2026-11-03",
+  "expectedReference": "DR-MULTI-901",
+  "expectedTotalCents": 670000,
+  "lines": [
+    {
+      "description": "Fresh Dairy Barista Milk 1000ml",
+      "expectedSku": "MILK-WM-1L",
+      "packCount": 10,
+      "lineCostCents": 155000,
+      "expiryDate": null
+    },
+    {
+      "description": "Oat Milk Barista Edition 1L",
+      "expectedSku": "MILK-OAT-1L",
+      "packCount": 12,
+      "lineCostCents": 240000,
+      "expiryDate": null
+    },
+    {
+      "description": "Barista Whole Milk 1L",
+      "expectedSku": "MILK-WM-1L",
+      "packCount": 6,
+      "lineCostCents": 93000,
+      "expiryDate": null
+    },
+    {
+      "description": "Artisan Vanilla Syrup 750ml",
+      "expectedSku": "SYRUP-VAN-750",
+      "packCount": 2,
+      "lineCostCents": 90000,
+      "expiryDate": null
+    },
+    {
+      "description": "Dark Chocolate Sauce 1L",
+      "expectedSku": "SAUCE-CHOC-1L",
+      "packCount": 1,
+      "lineCostCents": 92000,
+      "expiryDate": null
+    }
+  ]
+}

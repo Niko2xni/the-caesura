@@ -1,0 +1,25 @@
+{
+  "fixtureId": "dr-clean-packaging",
+  "category": "clean",
+  "description": "Packaging receipt for paper cups and lids without expiry",
+  "expectedSupplierName": "Apex Packaging Supplies",
+  "expectedDeliveryDate": "2026-11-07",
+  "expectedReference": "PKG-1044",
+  "expectedTotalCents": 475000,
+  "lines": [
+    {
+      "description": "Eco Paper Cup 8oz Kraft (Sleeve of 50)",
+      "expectedSku": "PKG-CUP-8OZ",
+      "packCount": 10,
+      "lineCostCents": 250000,
+      "expiryDate": null
+    },
+    {
+      "description": "Hot Cup Sip Lid 8oz (Pack of 100)",
+      "expectedSku": "PKG-LID-8OZ",
+      "packCount": 5,
+      "lineCostCents": 225000,
+      "expiryDate": null
+    }
+  ]
+}

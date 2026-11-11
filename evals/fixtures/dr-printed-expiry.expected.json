@@ -1,0 +1,25 @@
+{
+  "fixtureId": "dr-printed-expiry",
+  "category": "edge_case",
+  "description": "Dairy delivery with explicitly printed expiration dates on receipt",
+  "expectedSupplierName": "Northern Dairy Supply",
+  "expectedDeliveryDate": "2026-11-11",
+  "expectedReference": "DR-EXP-551",
+  "expectedTotalCents": 310000,
+  "lines": [
+    {
+      "description": "Fresh Dairy Barista Milk 1000ml (EXP: 2026-11-25)",
+      "expectedSku": "MILK-WM-1L",
+      "packCount": 10,
+      "lineCostCents": 155000,
+      "expiryDate": "2026-11-25"
+    },
+    {
+      "description": "Oat Milk Barista Edition 1L (EXP: 2027-02-15)",
+      "expectedSku": "MILK-OAT-1L",
+      "packCount": 7,
+      "lineCostCents": 155000,
+      "expiryDate": "2027-02-15"
+    }
+  ]
+}

@@ -568,6 +568,62 @@ export function ReceiveForm({
                   <p className="text-[11px] text-[var(--color-ink-muted)]">
                     Supports JPEG, PNG, or WebP up to 4 MB. Photos are compressed in-browser and never persisted.
                   </p>
+
+                  <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                    <p className="text-xs font-semibold text-[var(--color-ink-muted)] mb-2">
+                      Or try a sample Philippine delivery note (instant 1-click test):
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/samples/dr-clean-bukidnon-vat-inc.png');
+                            const blob = await res.blob();
+                            const file = new File([blob], 'bukidnon-delivery-receipt.png', { type: 'image/png' });
+                            handlePhotoSelected(file);
+                          } catch {
+                            setErrorMessage('Failed to load sample image.');
+                          }
+                        }}
+                        className="rounded-full border border-[var(--color-line)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-primary)] transition-colors"
+                      >
+                        ☕ Bukidnon Coffee (VAT Inc)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/samples/si-clean-northern-dairy-vat-ex.png');
+                            const blob = await res.blob();
+                            const file = new File([blob], 'northern-dairy-sales-invoice.png', { type: 'image/png' });
+                            handlePhotoSelected(file);
+                          } catch {
+                            setErrorMessage('Failed to load sample image.');
+                          }
+                        }}
+                        className="rounded-full border border-[var(--color-line)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-primary)] transition-colors"
+                      >
+                        🥛 Northern Dairy (12% VAT)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/samples/dr-clean-sweetcraft-syrups.png');
+                            const blob = await res.blob();
+                            const file = new File([blob], 'sweetcraft-syrups-note.png', { type: 'image/png' });
+                            handlePhotoSelected(file);
+                          } catch {
+                            setErrorMessage('Failed to load sample image.');
+                          }
+                        }}
+                        className="rounded-full border border-[var(--color-line)] bg-[var(--color-paper)] px-3 py-1 text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-primary)] transition-colors"
+                      >
+                        🍯 Sweet Craft Syrups
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
