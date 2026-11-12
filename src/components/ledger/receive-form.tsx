@@ -212,8 +212,15 @@ export function ReceiveForm({
         }
 
         const populatedLines: LineItemState[] = draft.lines.map((l: DraftLineItem) => {
-          const matchedProd = products.find((p) => p.id === l.selectedProductId);
-          const defaultPackQty = matchedProd?.baseUnit === 'each' ? '1' : '1000';
+          const matchedProd = l.selectedProductId ? products.find((p) => p.id === l.selectedProductId) : null;
+          const defaultPackQty = matchedProd ? (matchedProd.baseUnit === 'each' ? '1' : '1000') : '';
+
+          const rawPackCount = l.packCount ? Number(l.packCount) : 1;
+          const formattedPackCount = Number.isFinite(rawPackCount)
+            ? rawPackCount % 1 === 0
+              ? rawPackCount.toString()
+              : rawPackCount.toFixed(3)
+            : '1';
 
           const lineCostPesos =
             l.lineTotalCents !== undefined && l.lineTotalCents !== null
@@ -224,8 +231,8 @@ export function ReceiveForm({
 
           return {
             id: crypto.randomUUID(),
-            productId: l.selectedProductId || products[0]?.id || '',
-            packCount: l.packCount || '1',
+            productId: l.selectedProductId || '',
+            packCount: formattedPackCount,
             packQuantity: l.packQuantity || defaultPackQty,
             lineCostPesos,
             expiryDate: l.expiryDate || '',
@@ -256,9 +263,9 @@ export function ReceiveForm({
       ...prev,
       {
         id: crypto.randomUUID(),
-        productId: products[0]?.id || '',
+        productId: '',
         packCount: '1',
-        packQuantity: products[0]?.baseUnit === 'each' ? '1' : '1000',
+        packQuantity: '',
         lineCostPesos: '',
         expiryDate: '',
         lotCode: '',
@@ -278,11 +285,14 @@ export function ReceiveForm({
         if (l.id !== id) return l;
         const updated = { ...l, ...updates };
 
-        // If product changed, update default pack quantity
+        // If product changed, update default pack quantity and clear unselected/weak flags
         if (updates.productId) {
           const prod = products.find((p) => p.id === updates.productId);
           if (prod && !updated.packQuantity) {
             updated.packQuantity = prod.baseUnit === 'each' ? '1' : '1000';
+          }
+          if (updated.flags) {
+            updated.flags = updated.flags.filter((f) => f !== 'unmatched' && f !== 'weak_match');
           }
         }
         return updated;
@@ -775,6 +785,16 @@ export function ReceiveForm({
                               <AlertTriangle className="h-3 w-3" /> Weak Match — Please Review
                             </span>
                           )}
+                          {line.flags?.includes('unmatched') && !line.productId && (
+                            <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                              <AlertCircle className="h-3 w-3" /> Unmatched — Select Product
+                            </span>
+                          )}
+                          {!line.productId && !line.flags?.includes('unmatched') && !line.flags?.includes('weak_match') && (
+                            <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
+                              Select Product
+                            </span>
+                          )}
                         </div>
 
                         {lines.length > 1 && (
@@ -801,20 +821,22 @@ export function ReceiveForm({
                           </div>
 
                           {/* Quick-Pick Candidate Pills */}
-                          {line.candidates && line.candidates.length > 1 && (
+                          {line.candidates && line.candidates.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5 pt-1">
                               <span className="text-[11px] text-[var(--color-ink-muted)]">Candidates:</span>
                               {line.candidates.map((cand) => (
                                 <button
                                   key={cand.productId}
                                   type="button"
-                                  onClick={() =>
+                                  onClick={() => {
+                                    const candProd = products.find((p) => p.id === cand.productId);
                                     updateLine(line.id, {
                                       productId: cand.productId,
-                                      packQuantity: cand.packQuantity || line.packQuantity,
+                                      packQuantity: cand.packQuantity || (candProd?.baseUnit === 'each' ? '1' : '1000'),
                                       supplierItemId: cand.supplierItemId,
-                                    })
-                                  }
+                                      matchMethod: 'manual',
+                                    });
+                                  }}
                                   className={`rounded px-2 py-0.5 text-[11px] font-medium border transition-colors ${
                                     line.productId === cand.productId
                                       ? 'border-[var(--color-primary)] bg-emerald-50 text-[var(--color-primary)] font-bold'
@@ -844,6 +866,9 @@ export function ReceiveForm({
                             required
                             className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                           >
+                            <option value="" disabled>
+                              — Select matching product —
+                            </option>
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name} ({p.sku})
@@ -924,7 +949,10 @@ export function ReceiveForm({
                       <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-[var(--color-line)]">
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="text-[var(--color-ink-muted)]">
-                            Total stock: <strong className="text-[var(--color-ink)]">{formatQuantity(totalBaseQty, baseUnit)}</strong>
+                            Total stock:{' '}
+                            <strong className="text-[var(--color-ink)]">
+                              {line.productId && Number(line.packQuantity || 0) > 0 ? formatQuantity(totalBaseQty, baseUnit) : '—'}
+                            </strong>
                           </span>
 
                           {tracksExpiry && !line.expiryDate && prod?.shelfLifeDays && (
@@ -992,7 +1020,8 @@ export function ReceiveForm({
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || lines.some((l) => !l.productId)}
+                title={lines.some((l) => !l.productId) ? 'Select a product for every line before confirming' : undefined}
                 className="inline-flex items-center gap-2 rounded-[var(--radius-field)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-opacity"
               >
                 {isSubmitting ? (
