@@ -391,11 +391,10 @@ export function ReceiveForm({
         <button
           type="button"
           onClick={() => setReceiveMode('photo')}
-          className={`flex items-center gap-2 rounded-[var(--radius-field)] px-4 py-2 text-sm font-semibold transition-all ${
-            receiveMode === 'photo'
+          className={`flex items-center gap-2 rounded-[var(--radius-field)] px-4 py-2 text-sm font-semibold transition-all ${receiveMode === 'photo'
               ? 'bg-[var(--color-primary)] text-white shadow-xs'
               : 'border border-[var(--color-line)] bg-[var(--color-panel)] text-[var(--color-ink)] hover:bg-[var(--color-paper)]'
-          }`}
+            }`}
         >
           <Sparkles className="h-4 w-4" />
           <span>Read from photo</span>
@@ -404,11 +403,10 @@ export function ReceiveForm({
         <button
           type="button"
           onClick={() => setReceiveMode('manual')}
-          className={`flex items-center gap-2 rounded-[var(--radius-field)] px-4 py-2 text-sm font-semibold transition-all ${
-            receiveMode === 'manual'
+          className={`flex items-center gap-2 rounded-[var(--radius-field)] px-4 py-2 text-sm font-semibold transition-all ${receiveMode === 'manual'
               ? 'bg-[var(--color-primary)] text-white shadow-xs'
               : 'border border-[var(--color-line)] bg-[var(--color-panel)] text-[var(--color-ink)] hover:bg-[var(--color-paper)]'
-          }`}
+            }`}
         >
           <FileText className="h-4 w-4" />
           <span>Enter by hand</span>
@@ -476,6 +474,12 @@ export function ReceiveForm({
 
               {/* Pinned Image Container */}
               <div className="relative overflow-auto max-h-[70vh] rounded border border-[var(--color-line)] bg-slate-900 flex items-center justify-center">
+                {isExtracting && (
+                  <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur-xs border border-white/20">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                    <span>Analyzing document...</span>
+                  </div>
+                )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={photoUrl}
@@ -532,7 +536,7 @@ export function ReceiveForm({
                   <Loader2 className="h-10 w-10 animate-spin text-[var(--color-primary)]" />
                   <div className="space-y-1">
                     <p className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-                      Reading Delivery Receipt with Gemini Vision...
+                      Reading Delivery Receipt...
                     </p>
                     <p className="text-xs text-[var(--color-ink-muted)] max-w-sm">
                       Transcribing item descriptions, verifying arithmetic, and matching catalogue products.
@@ -640,401 +644,466 @@ export function ReceiveForm({
           )}
 
           {/* Document Flags Banner */}
-          {documentFlags.length > 0 && (
-            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs text-sm">
-              <div className="flex items-center gap-2 font-bold">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <span>Document Verification Flags:</span>
+            {
+              documentFlags.length > 0 && !isExtracting && (
+                <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs text-sm">
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span>Document Verification Flags:</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-xs text-amber-800">
+                    {documentFlags.includes('total_mismatch') && (
+                      <li>
+                        <strong>Total Mismatch:</strong> Sum of line totals matches neither document subtotal nor grand
+                        total.
+                      </li>
+                    )}
+                    {documentFlags.includes('date_implausible') && (
+                      <li>
+                        <strong>Date Notice:</strong> Delivery date is in the future or older than 60 days.
+                      </li>
+                    )}
+                    {documentFlags.includes('supplier_mismatch') && (
+                      <li>
+                        <strong>Supplier Mismatch:</strong> The name on the paper header differs from the chosen supplier.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )
+            }
+
+            {/* Main Delivery Form OR Extraction Progress State */}
+            {isExtracting ? (
+              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-6 shadow-xs space-y-6">
+                <div className="flex items-center gap-4 border-b border-[var(--color-line)] pb-5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[var(--color-primary)] shadow-xs">
+                    <Sparkles className="h-6 w-6 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
+                        Reading Delivery Receipt...
+                      </h3>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 animate-pulse">
+                        <Loader2 className="h-3 w-3 animate-spin" /> In Progress
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--color-ink-muted)]">
+                      Transcribing printed document, checking arithmetic, and matching catalogue items.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Extraction Progress Checklist */}
+                <div className="space-y-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-paper)] p-4">
+                  <div className="flex items-center gap-3 text-xs">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span className="text-[var(--color-ink)] font-medium">Image optimized & verified (client-side)</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <Loader2 className="h-4 w-4 text-[var(--color-primary)] animate-spin shrink-0" />
+                    <span className="text-[var(--color-ink)] font-semibold">Reading document header, VAT & line totals...</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-[var(--color-ink-muted)]">
+                    <div className="h-4 w-4 rounded-full border border-dashed border-stone-400 shrink-0 flex items-center justify-center text-[10px]">
+                      3
+                    </div>
+                    <span>Verifying arithmetic and matching catalogue products</span>
+                  </div>
+                </div>
+
+                {/* Shimmer Skeleton Placeholders for Delivery Details and Items */}
+                <div className="space-y-4 pt-1">
+                  <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-paper)] p-4 space-y-3">
+                    <div className="h-3.5 w-32 rounded bg-stone-200 animate-pulse" />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="h-8 rounded bg-stone-200 animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-paper)] p-4 space-y-3">
+                    <div className="h-3.5 w-40 rounded bg-stone-200 animate-pulse" />
+                    <div className="grid grid-cols-12 gap-3">
+                      <div className="col-span-4 h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="col-span-2 h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="col-span-2 h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="col-span-2 h-8 rounded bg-stone-200 animate-pulse" />
+                      <div className="col-span-2 h-8 rounded bg-stone-200 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <ul className="list-disc list-inside space-y-1 text-xs text-amber-800">
-                {documentFlags.includes('total_mismatch') && (
-                  <li>
-                    <strong>Total Mismatch:</strong> Sum of line totals matches neither document subtotal nor grand
-                    total.
-                  </li>
-                )}
-                {documentFlags.includes('date_implausible') && (
-                  <li>
-                    <strong>Date Notice:</strong> Delivery date is in the future or older than 60 days.
-                  </li>
-                )}
-                {documentFlags.includes('supplier_mismatch') && (
-                  <li>
-                    <strong>Supplier Mismatch:</strong> The name on the paper header differs from the chosen supplier.
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
-
-          {/* Delivery Details Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs space-y-4">
-              <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-                Delivery Details
-              </h2>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {/* Supplier */}
-                <div>
-                  <label htmlFor="supplierId" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
-                    Supplier <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    id="supplierId"
-                    value={supplierId}
-                    onChange={(e) => setSupplierId(e.target.value)}
-                    required
-                    className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                  >
-                    <option value="" disabled>
-                      Select a supplier...
-                    </option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Delivery Date */}
-                <div>
-                  <label htmlFor="deliveryDate" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
-                    Delivery Date <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="deliveryDate"
-                    type="date"
-                    value={deliveryDate}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                    required
-                    className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                  />
-                </div>
-
-                {/* Reference */}
-                <div>
-                  <label htmlFor="reference" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
-                    Invoice / DR #
-                  </label>
-                  <input
-                    id="reference"
-                    type="text"
-                    placeholder="e.g. DR-98124"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Line Items Section */}
-            <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
-                <div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs space-y-4">
                   <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-                    Items Received
+                    Delivery Details
                   </h2>
-                  <p className="text-xs text-[var(--color-ink-muted)]">
-                    Review pack quantities, costs, and expiry dates before committing to the ledger.
-                  </p>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {/* Supplier */}
+                    <div>
+                      <label htmlFor="supplierId" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
+                        Supplier <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        id="supplierId"
+                        value={supplierId}
+                        onChange={(e) => setSupplierId(e.target.value)}
+                        required
+                        className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                      >
+                        <option value="" disabled>
+                          Select a supplier...
+                        </option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Delivery Date */}
+                    <div>
+                      <label htmlFor="deliveryDate" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
+                        Delivery Date <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        id="deliveryDate"
+                        type="date"
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        required
+                        className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                      />
+                    </div>
+
+                    {/* Reference */}
+                    <div>
+                      <label htmlFor="reference" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
+                        Invoice / DR #
+                      </label>
+                      <input
+                        id="reference"
+                        type="text"
+                        placeholder="e.g. DR-98124"
+                        value={reference}
+                        onChange={(e) => setReference(e.target.value)}
+                        className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={addLine}
-                  className="inline-flex items-center gap-1.5 rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-paper)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Row</span>
-                </button>
-              </div>
+                {/* Line Items Section */}
+                <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
+                    <div>
+                      <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
+                        Items Received
+                      </h2>
+                      <p className="text-xs text-[var(--color-ink-muted)]">
+                        Review pack quantities, costs, and expiry dates before committing to the ledger.
+                      </p>
+                    </div>
 
-              <div className="space-y-4">
-                {lines.map((line, idx) => {
-                  const prod = products.find((p) => p.id === line.productId);
-                  const baseUnit = prod?.baseUnit || 'each';
-                  const tracksExpiry = prod?.tracksExpiry ?? false;
-
-                  const totalBaseQty = (Number(line.packCount || 0) * Number(line.packQuantity || 0)).toString();
-
-                  return (
-                    <div
-                      key={line.id}
-                      className="rounded-lg border border-[var(--color-line)] bg-[var(--color-paper)] p-4 space-y-3 shadow-xs"
+                    <button
+                      type="button"
+                      onClick={addLine}
+                      className="inline-flex items-center gap-1.5 rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-paper)] px-3 py-1.5 text-xs font-semibold text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
                     >
-                      {/* Top Row: Title, Match Badge & Remove */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[var(--color-ink)]">Item #{idx + 1}</span>
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add Row</span>
+                    </button>
+                  </div>
 
-                          {line.matchMethod === 'exact' && (
-                            <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                              <Check className="h-3 w-3" /> Exact Match
-                            </span>
-                          )}
-                          {line.matchMethod === 'suggested' && (
-                            <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
-                              <Sparkles className="h-3 w-3" /> Suggested Match
-                            </span>
-                          )}
-                          {line.flags?.includes('weak_match') && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                              <AlertTriangle className="h-3 w-3" /> Weak Match — Please Review
-                            </span>
-                          )}
-                          {line.flags?.includes('unmatched') && !line.productId && (
-                            <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
-                              <AlertCircle className="h-3 w-3" /> Unmatched — Select Product
-                            </span>
-                          )}
-                          {!line.productId && !line.flags?.includes('unmatched') && !line.flags?.includes('weak_match') && (
-                            <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                              Select Product
-                            </span>
-                          )}
-                        </div>
+                  <div className="space-y-4">
+                    {lines.map((line, idx) => {
+                      const prod = products.find((p) => p.id === line.productId);
+                      const baseUnit = prod?.baseUnit || 'each';
+                      const tracksExpiry = prod?.tracksExpiry ?? false;
 
-                        {lines.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeLine(line.id)}
-                            className="p-1 text-[var(--color-ink-muted)] hover:text-rose-600 rounded"
-                            title="Remove row"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
+                      const totalBaseQty = (Number(line.packCount || 0) * Number(line.packQuantity || 0)).toString();
 
-                      {/* Extracted Description / Candidates (if present) */}
-                      {line.descriptionPrinted && (
-                        <div className="rounded bg-[var(--color-panel)] p-2.5 text-xs border border-[var(--color-line)] space-y-1.5">
-                          <div className="text-[var(--color-ink-muted)]">
-                            Printed on receipt:{' '}
-                            <span className="font-semibold text-[var(--color-ink)]">
-                              &ldquo;{line.descriptionPrinted}&rdquo;
-                            </span>
-                            {line.supplierSku && <span className="ml-2 font-mono">({line.supplierSku})</span>}
+                      return (
+                        <div
+                          key={line.id}
+                          className="rounded-lg border border-[var(--color-line)] bg-[var(--color-paper)] p-4 space-y-3 shadow-xs"
+                        >
+                          {/* Top Row: Title, Match Badge & Remove */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[var(--color-ink)]">Item #{idx + 1}</span>
+
+                              {line.matchMethod === 'exact' && (
+                                <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                  <Check className="h-3 w-3" /> Exact Match
+                                </span>
+                              )}
+                              {line.matchMethod === 'suggested' && (
+                                <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                                  <Sparkles className="h-3 w-3" /> Suggested Match
+                                </span>
+                              )}
+                              {line.flags?.includes('weak_match') && (
+                                <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  <AlertTriangle className="h-3 w-3" /> Weak Match — Please Review
+                                </span>
+                              )}
+                              {line.flags?.includes('unmatched') && !line.productId && (
+                                <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                                  <AlertCircle className="h-3 w-3" /> Unmatched — Select Product
+                                </span>
+                              )}
+                              {!line.productId && !line.flags?.includes('unmatched') && !line.flags?.includes('weak_match') && (
+                                <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
+                                  Select Product
+                                </span>
+                              )}
+                            </div>
+
+                            {lines.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeLine(line.id)}
+                                className="p-1 text-[var(--color-ink-muted)] hover:text-rose-600 rounded"
+                                title="Remove row"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
 
-                          {/* Quick-Pick Candidate Pills */}
-                          {line.candidates && line.candidates.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                              <span className="text-[11px] text-[var(--color-ink-muted)]">Candidates:</span>
-                              {line.candidates.map((cand) => (
-                                <button
-                                  key={cand.productId}
-                                  type="button"
-                                  onClick={() => {
-                                    const candProd = products.find((p) => p.id === cand.productId);
-                                    updateLine(line.id, {
-                                      productId: cand.productId,
-                                      packQuantity: cand.packQuantity || (candProd?.baseUnit === 'each' ? '1' : '1000'),
-                                      supplierItemId: cand.supplierItemId,
-                                      matchMethod: 'manual',
-                                    });
-                                  }}
-                                  className={`rounded px-2 py-0.5 text-[11px] font-medium border transition-colors ${
-                                    line.productId === cand.productId
-                                      ? 'border-[var(--color-primary)] bg-emerald-50 text-[var(--color-primary)] font-bold'
-                                      : 'border-[var(--color-line)] bg-[var(--color-paper)] text-[var(--color-ink)] hover:bg-[var(--color-panel)]'
-                                  }`}
-                                >
-                                  {cand.productName} ({Math.round(cand.score * 100)}%)
-                                </button>
-                              ))}
+                          {/* Extracted Description / Candidates (if present) */}
+                          {line.descriptionPrinted && (
+                            <div className="rounded bg-[var(--color-panel)] p-2.5 text-xs border border-[var(--color-line)] space-y-1.5">
+                              <div className="text-[var(--color-ink-muted)]">
+                                Printed on receipt:{' '}
+                                <span className="font-semibold text-[var(--color-ink)]">
+                                  &ldquo;{line.descriptionPrinted}&rdquo;
+                                </span>
+                                {line.supplierSku && <span className="ml-2 font-mono">({line.supplierSku})</span>}
+                              </div>
+
+                              {/* Quick-Pick Candidate Pills */}
+                              {line.candidates && line.candidates.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                  <span className="text-[11px] text-[var(--color-ink-muted)]">Candidates:</span>
+                                  {line.candidates.map((cand) => (
+                                    <button
+                                      key={cand.productId}
+                                      type="button"
+                                      onClick={() => {
+                                        const candProd = products.find((p) => p.id === cand.productId);
+                                        updateLine(line.id, {
+                                          productId: cand.productId,
+                                          packQuantity: cand.packQuantity || (candProd?.baseUnit === 'each' ? '1' : '1000'),
+                                          supplierItemId: cand.supplierItemId,
+                                          matchMethod: 'manual',
+                                        });
+                                      }}
+                                      className={`rounded px-2 py-0.5 text-[11px] font-medium border transition-colors ${line.productId === cand.productId
+                                          ? 'border-[var(--color-primary)] bg-emerald-50 text-[var(--color-primary)] font-bold'
+                                          : 'border-[var(--color-line)] bg-[var(--color-paper)] text-[var(--color-ink)] hover:bg-[var(--color-panel)]'
+                                        }`}
+                                    >
+                                      {cand.productName} ({Math.round(cand.score * 100)}%)
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
+
+                          {/* Input Fields Grid */}
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+                            {/* Product selection */}
+                            <div className="sm:col-span-4">
+                              <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                                <span>
+                                  Product <span className="text-rose-500">*</span>
+                                </span>
+                              </label>
+                              <select
+                                value={line.productId}
+                                onChange={(e) => updateLine(line.id, { productId: e.target.value })}
+                                required
+                                className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                              >
+                                <option value="" disabled>
+                                  — Select matching product —
+                                </option>
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} ({p.sku})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Packs */}
+                            <div className="sm:col-span-2">
+                              <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                                <span>
+                                  Packs <span className="text-rose-500">*</span>
+                                </span>
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="any"
+                                value={line.packCount}
+                                onChange={(e) => updateLine(line.id, { packCount: e.target.value })}
+                                required
+                                className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                              />
+                            </div>
+
+                            {/* Qty per pack */}
+                            <div className="sm:col-span-2">
+                              <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                                <span className="truncate">Qty / Pack</span>
+                                <span className="text-[10px] normal-case text-[var(--color-ink-muted)] font-normal leading-none">
+                                  ({baseUnit})
+                                </span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="any"
+                                value={line.packQuantity}
+                                onChange={(e) => updateLine(line.id, { packQuantity: e.target.value })}
+                                required
+                                className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                              />
+                            </div>
+
+                            {/* Line Cost (PHP) */}
+                            <div className="sm:col-span-2">
+                              <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                                <span>Cost (PHP)</span>
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="e.g. 570.00"
+                                value={line.lineCostPesos}
+                                onChange={(e) => updateLine(line.id, { lineCostPesos: e.target.value })}
+                                className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                              />
+                            </div>
+
+                            {/* Expiry Date */}
+                            <div className="sm:col-span-2">
+                              <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
+                                <span>Expiry {tracksExpiry && <span className="text-rose-500">*</span>}</span>
+                              </label>
+                              <input
+                                type="date"
+                                value={line.expiryDate}
+                                onChange={(e) => updateLine(line.id, { expiryDate: e.target.value })}
+                                required={tracksExpiry && prod?.shelfLifeDays === null}
+                                className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Warnings & Meta Info */}
+                          <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-[var(--color-line)]">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="text-[var(--color-ink-muted)]">
+                                Total stock:{' '}
+                                <strong className="text-[var(--color-ink)]">
+                                  {line.productId && Number(line.packQuantity || 0) > 0 ? formatQuantity(totalBaseQty, baseUnit) : '—'}
+                                </strong>
+                              </span>
+
+                              {tracksExpiry && !line.expiryDate && prod?.shelfLifeDays && (
+                                <span className="text-amber-700 font-medium">
+                                  Will estimate automatically (+{prod.shelfLifeDays} days)
+                                </span>
+                              )}
+
+                              {line.flags?.includes('arithmetic_mismatch') && (
+                                <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
+                                  <AlertCircle className="h-3.5 w-3.5" /> Arithmetic mismatch on receipt
+                                </span>
+                              )}
+
+                              {line.flags?.includes('missing_expiry') && (
+                                <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
+                                  <AlertCircle className="h-3.5 w-3.5" /> Expiry date required for this item
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Learning Loop Toggle */}
+                            {line.descriptionPrinted && (
+                              <label className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink)] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={line.saveSupplierAlias ?? false}
+                                  onChange={(e) => updateLine(line.id, { saveSupplierAlias: e.target.checked })}
+                                  className="rounded border-[var(--color-line)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                />
+                                <span>Remember supplier item alias</span>
+                              </label>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      {/* Input Fields Grid */}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-                        {/* Product selection */}
-                        <div className="sm:col-span-4">
-                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            <span>
-                              Product <span className="text-rose-500">*</span>
-                            </span>
-                          </label>
-                          <select
-                            value={line.productId}
-                            onChange={(e) => updateLine(line.id, { productId: e.target.value })}
-                            required
-                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                          >
-                            <option value="" disabled>
-                              — Select matching product —
-                            </option>
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.sku})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Packs */}
-                        <div className="sm:col-span-2">
-                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            <span>
-                              Packs <span className="text-rose-500">*</span>
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            step="any"
-                            value={line.packCount}
-                            onChange={(e) => updateLine(line.id, { packCount: e.target.value })}
-                            required
-                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                          />
-                        </div>
-
-                        {/* Qty per pack */}
-                        <div className="sm:col-span-2">
-                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            <span className="truncate">Qty / Pack</span>
-                            <span className="text-[10px] normal-case text-[var(--color-ink-muted)] font-normal leading-none">
-                              ({baseUnit})
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0.001"
-                            step="any"
-                            value={line.packQuantity}
-                            onChange={(e) => updateLine(line.id, { packQuantity: e.target.value })}
-                            required
-                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                          />
-                        </div>
-
-                        {/* Line Cost (PHP) */}
-                        <div className="sm:col-span-2">
-                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            <span>Cost (PHP)</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="e.g. 570.00"
-                            value={line.lineCostPesos}
-                            onChange={(e) => updateLine(line.id, { lineCostPesos: e.target.value })}
-                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 text-xs text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                          />
-                        </div>
-
-                        {/* Expiry Date */}
-                        <div className="sm:col-span-2">
-                          <label className="flex flex-col justify-end h-8 pb-1 text-[11px] font-semibold uppercase text-[var(--color-ink-muted)]">
-                            <span>Expiry {tracksExpiry && <span className="text-rose-500">*</span>}</span>
-                          </label>
-                          <input
-                            type="date"
-                            value={line.expiryDate}
-                            onChange={(e) => updateLine(line.id, { expiryDate: e.target.value })}
-                            required={tracksExpiry && prod?.shelfLifeDays === null}
-                            className="block h-8 w-full rounded border border-[var(--color-line)] bg-[var(--color-panel)] px-2 text-xs text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Warnings & Meta Info */}
-                      <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-[var(--color-line)]">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-[var(--color-ink-muted)]">
-                            Total stock:{' '}
-                            <strong className="text-[var(--color-ink)]">
-                              {line.productId && Number(line.packQuantity || 0) > 0 ? formatQuantity(totalBaseQty, baseUnit) : '—'}
-                            </strong>
-                          </span>
-
-                          {tracksExpiry && !line.expiryDate && prod?.shelfLifeDays && (
-                            <span className="text-amber-700 font-medium">
-                              Will estimate automatically (+{prod.shelfLifeDays} days)
-                            </span>
-                          )}
-
-                          {line.flags?.includes('arithmetic_mismatch') && (
-                            <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
-                              <AlertCircle className="h-3.5 w-3.5" /> Arithmetic mismatch on receipt
-                            </span>
-                          )}
-
-                          {line.flags?.includes('missing_expiry') && (
-                            <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
-                              <AlertCircle className="h-3.5 w-3.5" /> Expiry date required for this item
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Learning Loop Toggle */}
-                        {line.descriptionPrinted && (
-                          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink)] cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={line.saveSupplierAlias ?? false}
-                              onChange={(e) => updateLine(line.id, { saveSupplierAlias: e.target.checked })}
-                              className="rounded border-[var(--color-line)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                            />
-                            <span>Remember supplier item alias</span>
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Error & Success Alerts */}
-            {errorMessage && (
-              <div className="flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 p-4 text-xs font-semibold text-rose-800 shadow-xs">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-xs">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => router.push('/today')}
-                className="rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)] hover:bg-[var(--color-paper)] transition-colors"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || lines.some((l) => !l.productId)}
-                title={lines.some((l) => !l.productId) ? 'Select a product for every line before confirming' : undefined}
-                className="inline-flex items-center gap-2 rounded-[var(--radius-field)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-opacity"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Confirming Receipt...</span>
-                  </>
-                ) : (
-                  <span>Confirm Receipt</span>
+                {/* Error & Success Alerts */}
+                {errorMessage && (
+                  <div className="flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 p-4 text-xs font-semibold text-rose-800 shadow-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
+
+                {successMessage && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-xs">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/today')}
+                    className="rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)] hover:bg-[var(--color-paper)] transition-colors"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || lines.some((l) => !l.productId)}
+                    title={lines.some((l) => !l.productId) ? 'Select a product for every line before confirming' : undefined}
+                    className="inline-flex items-center gap-2 rounded-[var(--radius-field)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-opacity"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Confirming Receipt...</span>
+                      </>
+                    ) : (
+                      <span>Confirm Receipt</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
         </div>
       </div>
 
