@@ -29,6 +29,13 @@ interface OrderDetailViewProps {
   today: string;
 }
 
+function formatPacksWithLabel(val: string): string {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return `${val} packs`;
+  const formatted = Number.isInteger(num) ? String(num) : num.toFixed(2).replace(/\.?0+$/, '');
+  return `${formatted} ${formatted === '1' ? 'pack' : 'packs'}`;
+}
+
 function formatPacks(val: string): string {
   const num = Number(val);
   if (!Number.isFinite(num)) return val;
@@ -263,13 +270,13 @@ export function OrderDetailView({ order, isAdmin, today }: OrderDetailViewProps)
                     </td>
 
                     <td className="px-4 py-3 text-right font-mono text-xs font-semibold tabular-nums text-[var(--color-ink)]">
-                      {formatPacks(line.packCount)} packs
+                      {formatPacksWithLabel(line.packCount)}
                     </td>
 
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex flex-col items-end gap-1">
                         <span className="font-mono text-xs font-semibold tabular-nums text-[var(--color-ink)]">
-                          {formatPacks(line.receivedPackCount)} packs
+                          {formatPacksWithLabel(line.receivedPackCount)}
                         </span>
                         <div className="h-1 w-20 overflow-hidden rounded-full bg-stone-200">
                           <div
@@ -287,7 +294,7 @@ export function OrderDetailView({ order, isAdmin, today }: OrderDetailViewProps)
                     </td>
 
                     <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-[var(--color-ink-muted)]">
-                      {formatPacks(line.outstandingPackCount)} packs
+                      {formatPacksWithLabel(line.outstandingPackCount)}
                     </td>
 
                     <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-[var(--color-ink)]">

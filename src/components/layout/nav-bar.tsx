@@ -37,13 +37,13 @@ export function NavBar({ user }: NavBarProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[var(--color-panel)] shadow-xs">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
-        <div className="flex items-center gap-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
+        <div className="flex items-center gap-4">
           <Link
             href="/today"
-            className="flex items-center gap-2 font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)] hover:text-[var(--color-primary)] transition-colors"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)] hover:text-[var(--color-primary)] transition-colors"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-primary)] text-xs font-black text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[var(--color-primary)] text-xs font-black text-white">
               TC
             </span>
             <span>The Caesura</span>
@@ -60,13 +60,13 @@ export function NavBar({ user }: NavBarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-[var(--radius-field)] px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-field)] px-2.5 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-[var(--color-paper)] text-[var(--color-primary)] font-semibold shadow-xs'
                       : 'text-[var(--color-ink-muted)] hover:bg-[var(--color-paper)] hover:text-[var(--color-ink)]'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4 shrink-0" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -74,9 +74,9 @@ export function NavBar({ user }: NavBarProps) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="flex items-center gap-2 text-sm">
-            <span className="hidden sm:inline font-medium text-[var(--color-ink)]">
+            <span className="hidden sm:inline whitespace-nowrap font-medium text-[var(--color-ink)]">
               {user.name}
             </span>
             <span
