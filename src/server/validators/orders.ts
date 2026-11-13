@@ -52,7 +52,8 @@ export const cancelPurchaseOrderSchema = z.object({
   reason: z.string().trim().max(500, 'Cancellation reason cannot exceed 500 characters').optional(),
 });
 
-export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
-export type CreatePurchaseOrderLineInput = z.infer<typeof createPurchaseOrderLineSchema>;
-export type CancelPurchaseOrderInput = z.infer<typeof cancelPurchaseOrderSchema>;
+export type CreatePurchaseOrderInput = z.input<typeof createPurchaseOrderSchema>;
+export type CreatePurchaseOrderParsed = z.infer<typeof createPurchaseOrderSchema>;
+export type CreatePurchaseOrderLineInput = z.input<typeof createPurchaseOrderLineSchema>;
+export type CancelPurchaseOrderInput = z.input<typeof cancelPurchaseOrderSchema>;
 

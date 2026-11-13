@@ -8,6 +8,7 @@ import { recordUsage } from './record-usage';
 import { recordWaste } from './record-waste';
 import { recordAdjustment } from './record-adjustment';
 import { getProductDetail, getProductStockList, getTodayWorkLists } from './queries';
+import { cancelPurchaseOrder, createPurchaseOrder, getPurchaseOrderDetail } from '../orders/orders';
 
 const testRunId = crypto.randomUUID().slice(0, 8);
 
@@ -561,6 +562,220 @@ describe('Ledger integration tests against real PostgreSQL 17', () => {
     expect(foundReorder).toBeDefined();
     expect(foundReorder?.usableQuantity).toBe('1200.000');
     expect(foundReorder?.reorderPoint).toBe('5000.000');
+  });
+
+  it('links partial and split deliveries to a PO, tracks cost variance, and transitions status to completed', async () => {
+    const [{ today }] = await db.execute<{ today: string }>(sql`SELECT business_today()::text AS today`);
+    const prodA = await createProduct({ suffix: 'PO-LINK-A', tracksExpiry: false, shelfLifeDays: null });
+    const prodB = await createProduct({ suffix: 'PO-LINK-B', tracksExpiry: false, shelfLifeDays: null });
+
+    const poRes = await createPurchaseOrder({
+      supplierId: testSupplierId,
+      orderDate: today,
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodA,
+          packCount: '5.000',
+          packQuantity: '1000.000',
+          agreedPackCostCents: 85000,
+        },
+        {
+          productId: prodB,
+          packCount: '10.000',
+          packQuantity: '1000.000',
+          agreedPackCostCents: 15500,
+        },
+      ],
+    });
+    expect(poRes.ok).toBe(true);
+    if (!poRes.ok) return;
+
+    const poId = poRes.data.purchaseOrderId;
+    const initialDetail = await getPurchaseOrderDetail(poId);
+    expect(initialDetail).not.toBeNull();
+    const lineA = initialDetail!.lines.find((l) => l.productId === prodA)!;
+    const lineB = initialDetail!.lines.find((l) => l.productId === prodB)!;
+
+    // Delivery 1: partial delivery of prodA (3 of 5 packs) at higher pack cost (90000 vs 85000)
+    const idem1 = crypto.randomUUID();
+    const del1Payload = {
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      reference: 'DR-PARTIAL-1',
+      source: 'manual' as const,
+      purchaseOrderId: poId,
+      idempotencyKey: idem1,
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodA,
+          purchaseOrderLineId: lineA.id,
+          packCount: '3.000',
+          packQuantity: '1000.000',
+          lineCostCents: 270000, // 90000/pack (+5000 variance)
+          matchMethod: 'manual' as const,
+        },
+      ],
+    };
+
+    const del1 = await receiveDelivery(del1Payload);
+    expect(del1.ok).toBe(true);
+    if (!del1.ok) return;
+    expect(del1.data.deduplicated).toBe(false);
+    expect(del1.data.poSummary?.status).toBe('partially_received');
+    expect(del1.data.poSummary?.hasShortDelivery).toBe(true);
+    expect(del1.data.poSummary?.costVariances).toHaveLength(1);
+    expect(del1.data.poSummary?.costVariances[0]).toMatchObject({
+      purchaseOrderLineId: lineA.id,
+      productId: prodA,
+      agreedPackCostCents: 85000,
+      actualPackCostCents: 90000,
+      deltaCents: 5000,
+    });
+
+    // Idempotency check: retrying same key must NOT double-increment receivedPackCount
+    const del1Retry = await receiveDelivery(del1Payload);
+    expect(del1Retry.ok).toBe(true);
+    if (del1Retry.ok) {
+      expect(del1Retry.data.deduplicated).toBe(true);
+    }
+
+    const midDetail = await getPurchaseOrderDetail(poId);
+    expect(midDetail?.status).toBe('partially_received');
+    expect(midDetail?.linkedReceipts).toHaveLength(1);
+    const midLineA = midDetail?.lines.find((l) => l.id === lineA.id);
+    expect(midLineA?.receivedPackCount).toBe('3.000');
+    expect(midLineA?.outstandingPackCount).toBe('2.000');
+    expect(midLineA?.isShortDelivery).toBe(true);
+
+    // Physical stock reflects actual received qty (3000), not ordered qty (5000)
+    const stockMid = await getProductStockList();
+    expect(stockMid.find((p) => p.id === prodA)?.usableQuantity).toBe('3000.000');
+
+    // Delivery 2: completes remaining 2 packs of prodA and all 10 packs of prodB (without explicit line IDs)
+    const del2 = await receiveDelivery({
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      reference: 'DR-FINAL-2',
+      source: 'manual',
+      purchaseOrderId: poId,
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodA,
+          packCount: '2.000',
+          packQuantity: '1000.000',
+          lineCostCents: 170000, // 85000/pack (matches agreed cost)
+          matchMethod: 'manual',
+        },
+        {
+          productId: prodB,
+          purchaseOrderLineId: lineB.id,
+          packCount: '10.000',
+          packQuantity: '1000.000',
+          lineCostCents: 155000, // 15500/pack
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(del2.ok).toBe(true);
+    if (!del2.ok) return;
+    expect(del2.data.poSummary?.status).toBe('completed');
+    expect(del2.data.poSummary?.hasShortDelivery).toBe(false);
+    expect(del2.data.poSummary?.costVariances).toHaveLength(0);
+
+    const finalDetail = await getPurchaseOrderDetail(poId);
+    expect(finalDetail?.status).toBe('completed');
+    expect(finalDetail?.linkedReceipts).toHaveLength(2);
+    expect(finalDetail?.lines.every((l) => l.isFullyReceived)).toBe(true);
+
+    // Delivery 3 against completed PO is rejected
+    const del3 = await receiveDelivery({
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      source: 'manual',
+      purchaseOrderId: poId,
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodA,
+          packCount: '1.000',
+          packQuantity: '1000.000',
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(del3.ok).toBe(false);
+    if (!del3.ok) expect(del3.code).toBe('invalid_po_status');
+  });
+
+  it('rejects delivery linked to a cancelled PO or mismatched supplier PO', async () => {
+    const [{ today }] = await db.execute<{ today: string }>(sql`SELECT business_today()::text AS today`);
+    const prodId = await createProduct({ suffix: 'PO-GUARD', tracksExpiry: false, shelfLifeDays: null });
+    const [otherSupplier] = await db
+      .insert(suppliers)
+      .values({ name: `Other PO Supplier ${testRunId}` })
+      .returning({ id: suppliers.id });
+
+    const poRes = await createPurchaseOrder({
+      supplierId: testSupplierId,
+      orderDate: today,
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodId,
+          packCount: '4.000',
+          packQuantity: '1000.000',
+        },
+      ],
+    });
+    expect(poRes.ok).toBe(true);
+    if (!poRes.ok) return;
+    const poId = poRes.data.purchaseOrderId;
+
+    // Mismatched supplier
+    const mismatchRes = await receiveDelivery({
+      supplierId: otherSupplier.id,
+      deliveryDate: today,
+      source: 'manual',
+      purchaseOrderId: poId,
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodId,
+          packCount: '4.000',
+          packQuantity: '1000.000',
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(mismatchRes.ok).toBe(false);
+    if (!mismatchRes.ok) expect(mismatchRes.code).toBe('po_supplier_mismatch');
+
+    // Cancel PO then try receiving
+    await cancelPurchaseOrder(poId, testUserId, 'Test cancellation');
+    const cancelledRes = await receiveDelivery({
+      supplierId: testSupplierId,
+      deliveryDate: today,
+      source: 'manual',
+      purchaseOrderId: poId,
+      idempotencyKey: crypto.randomUUID(),
+      userId: testUserId,
+      lines: [
+        {
+          productId: prodId,
+          packCount: '4.000',
+          packQuantity: '1000.000',
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(cancelledRes.ok).toBe(false);
+    if (!cancelledRes.ok) expect(cancelledRes.code).toBe('invalid_po_status');
   });
 });
 

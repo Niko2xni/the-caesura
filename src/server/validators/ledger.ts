@@ -25,6 +25,7 @@ export const optionalIsoDateSchema = z
 export const receiveLineSchema = z.object({
   productId: z.uuid('Invalid product ID'),
   supplierItemId: z.uuid('Invalid supplier item ID').nullable().optional(),
+  purchaseOrderLineId: z.uuid('Invalid purchase order line ID').nullable().optional(),
   descriptionPrinted: z.string().trim().max(200).nullable().optional(),
   packCount: z
     .string()
@@ -54,6 +55,7 @@ export const receiveDeliverySchema = z.object({
   reference: z.string().trim().max(100).nullable().optional(),
   source: z.enum(['manual', 'ai_extraction']).default('manual'),
   extractionId: z.uuid('Invalid extraction ID').nullable().optional(),
+  purchaseOrderId: z.uuid('Invalid purchase order ID').nullable().optional(),
   idempotencyKey: z.uuid('Idempotency key must be a valid UUID'),
   lines: z.array(receiveLineSchema).min(1, 'Delivery must contain at least one line item'),
 });

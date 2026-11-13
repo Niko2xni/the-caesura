@@ -140,6 +140,41 @@ describe('Ledger Validators', () => {
     expect(valid.success).toBe(true);
   });
 
+  it('validates optional purchaseOrderId and purchaseOrderLineId UUIDs on receiveDelivery', () => {
+    const valid = receiveDeliverySchema.safeParse({
+      supplierId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      deliveryDate: '2026-11-10',
+      purchaseOrderId: 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      idempotencyKey: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      lines: [
+        {
+          productId: 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          purchaseOrderLineId: 'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          packCount: '2',
+          packQuantity: '1000',
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(valid.success).toBe(true);
+
+    const invalid = receiveDeliverySchema.safeParse({
+      supplierId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      deliveryDate: '2026-11-10',
+      purchaseOrderId: 'not-a-uuid',
+      idempotencyKey: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+      lines: [
+        {
+          productId: 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          packCount: '2',
+          packQuantity: '1000',
+          matchMethod: 'manual',
+        },
+      ],
+    });
+    expect(invalid.success).toBe(false);
+  });
+
   it('transforms empty expiryDate string to null', () => {
     const valid = receiveDeliverySchema.safeParse({
       supplierId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
@@ -239,4 +274,3 @@ describe('Ledger Validators', () => {
     expect(emptyNote.success).toBe(false);
   });
 });
-

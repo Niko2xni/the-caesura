@@ -36,6 +36,10 @@ export async function receiveDeliveryAction(input: unknown): Promise<ReceiveDeli
       revalidatePath('/today');
       revalidatePath('/receive');
       revalidatePath('/catalogue');
+      if (parsed.data.purchaseOrderId) {
+        revalidatePath('/orders');
+        revalidatePath(`/orders/${parsed.data.purchaseOrderId}`);
+      }
     }
 
     return result;
