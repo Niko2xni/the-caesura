@@ -8,4 +8,11 @@ export const receiptSourceEnum = pgEnum('receipt_source', ['manual', 'ai_extract
 export const matchMethodEnum = pgEnum('match_method', ['exact', 'suggested', 'manual', 'new_item']);
 export const extractionStatusEnum = pgEnum('extraction_status', ['succeeded', 'failed_model', 'failed_validation']);
 export const userRoleEnum = pgEnum('user_role', ['admin', 'staff']);
+export const purchaseOrderStatusEnum = pgEnum('purchase_order_status', [
+  'draft',
+  'submitted',
+  'partially_received',
+  'completed',
+  'cancelled',
+]);
 

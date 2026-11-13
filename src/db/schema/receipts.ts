@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { receiptSourceEnum } from './enums';
 import { suppliers } from './suppliers';
 import { documentExtractions } from './extractions';
+import { purchaseOrders } from './purchase-orders';
 import { user } from './auth';
 
 export const receipts = pgTable('receipts', {
@@ -10,6 +11,7 @@ export const receipts = pgTable('receipts', {
   supplierId: uuid('supplier_id')
     .notNull()
     .references(() => suppliers.id, { onDelete: 'restrict' }),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
   deliveryDate: date('delivery_date', { mode: 'string' }).notNull(),
   reference: text('reference'),
   source: receiptSourceEnum('source').notNull(),
