@@ -15,4 +15,5 @@ export const purchaseOrderStatusEnum = pgEnum('purchase_order_status', [
   'completed',
   'cancelled',
 ]);
+export const salesImportSourceEnum = pgEnum('sales_import_source', ['csv', 'webhook', 'manual']);
 

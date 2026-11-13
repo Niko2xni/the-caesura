@@ -10,5 +10,6 @@ export * from './receipts';
 export * from './batches';
 export * from './purchase-orders';
 export * from './receipt-lines';
+export * from './recipes';
 export * from './ledger';
 
