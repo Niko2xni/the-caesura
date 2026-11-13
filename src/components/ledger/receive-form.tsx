@@ -8,6 +8,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ClipboardList,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -23,10 +24,11 @@ import {
 } from 'lucide-react';
 import { receiveDeliveryAction } from '@/app/actions/ledger';
 import { resizeReceiptImage } from '@/lib/image-resize';
-import { majorToCents } from '@/lib/money';
+import { centsToMajor, formatCents, majorToCents } from '@/lib/money';
 import { formatQuantity, type BaseUnit } from '@/lib/units';
 import type { DocumentCheckFlag, LineCheckFlag } from '@/server/extraction/checks';
 import type { MatchCandidate, MatchMethod } from '@/server/extraction/match';
+import type { OpenPurchaseOrderForReceiving } from '@/server/orders/orders';
 
 interface ProductOption {
   id: string;
@@ -45,6 +47,7 @@ interface SupplierOption {
 interface LineItemState {
   id: string; // client temporary key
   productId: string;
+  purchaseOrderLineId?: string | null;
   packCount: string;
   packQuantity: string;
   lineCostPesos: string;
@@ -64,21 +67,61 @@ interface LineItemState {
 interface ReceiveFormProps {
   suppliers: SupplierOption[];
   products: ProductOption[];
+  openOrders?: OpenPurchaseOrderForReceiving[];
   defaultDate: string;
   initialSupplierId?: string;
   initialProductId?: string;
+  initialPoId?: string;
+}
+
+function cleanNumericString(val: string): string {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return val;
+  return Number.isInteger(num) ? String(num) : String(num);
+}
+
+function buildLinesFromPo(po: OpenPurchaseOrderForReceiving): LineItemState[] {
+  const remainingLines = po.lines.filter((l) => Number(l.outstandingPackCount) > 0);
+  const sourceLines = remainingLines.length > 0 ? remainingLines : po.lines;
+
+  return sourceLines.map((l) => {
+    const outstandingNum = Number(l.outstandingPackCount);
+    const estTotalCents =
+      l.agreedPackCostCents !== null && Number.isFinite(outstandingNum) && outstandingNum > 0
+        ? Math.round(outstandingNum * l.agreedPackCostCents)
+        : null;
+
+    return {
+      id: crypto.randomUUID(),
+      productId: l.productId,
+      purchaseOrderLineId: l.id,
+      supplierItemId: l.supplierItemId,
+      packCount: cleanNumericString(l.outstandingPackCount),
+      packQuantity: cleanNumericString(l.packQuantity),
+      lineCostPesos: estTotalCents !== null ? centsToMajor(estTotalCents) : '',
+      expiryDate: '',
+      lotCode: '',
+      matchMethod: 'manual',
+      saveSupplierAlias: false,
+    };
+  });
 }
 
 export function ReceiveForm({
   suppliers,
   products,
+  openOrders = [],
   defaultDate,
   initialSupplierId,
   initialProductId,
+  initialPoId,
 }: ReceiveFormProps) {
   const router = useRouter();
 
+  const initialPo = initialPoId ? openOrders.find((o) => o.id === initialPoId) : undefined;
+
   const resolvedSupplierId =
+    initialPo?.supplierId ||
     (initialSupplierId && suppliers.some((s) => s.id === initialSupplierId) ? initialSupplierId : null) ||
     suppliers[0]?.id ||
     '';
@@ -89,9 +132,10 @@ export function ReceiveForm({
   const defaultProd = products.find((p) => p.id === resolvedProductId);
 
   // Method state: 'photo' (AI) vs 'manual'
-  const [receiveMode, setReceiveMode] = useState<'photo' | 'manual'>('photo');
+  const [receiveMode, setReceiveMode] = useState<'photo' | 'manual'>(initialPo ? 'manual' : 'photo');
 
   // Document header state
+  const [purchaseOrderId, setPurchaseOrderId] = useState<string>(initialPo?.id ?? '');
   const [supplierId, setSupplierId] = useState(resolvedSupplierId);
   const [deliveryDate, setDeliveryDate] = useState(defaultDate);
   const [reference, setReference] = useState('');
@@ -113,18 +157,57 @@ export function ReceiveForm({
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Line items state
-  const [lines, setLines] = useState<LineItemState[]>([
-    {
-      id: crypto.randomUUID(),
-      productId: resolvedProductId,
-      packCount: '1',
-      packQuantity: defaultProd?.baseUnit === 'each' ? '1' : '1000',
-      lineCostPesos: '',
-      expiryDate: '',
-      lotCode: '',
-      saveSupplierAlias: false,
-    },
-  ]);
+  const [lines, setLines] = useState<LineItemState[]>(() =>
+    initialPo
+      ? buildLinesFromPo(initialPo)
+      : [
+          {
+            id: crypto.randomUUID(),
+            productId: resolvedProductId,
+            packCount: '1',
+            packQuantity: defaultProd?.baseUnit === 'each' ? '1' : '1000',
+            lineCostPesos: '',
+            expiryDate: '',
+            lotCode: '',
+            saveSupplierAlias: false,
+          },
+        ],
+  );
+
+  const selectedPo = openOrders.find((o) => o.id === purchaseOrderId);
+
+  const handlePurchaseOrderChange = (nextPoId: string) => {
+    setPurchaseOrderId(nextPoId);
+    if (!nextPoId) {
+      setLines((prev) => prev.map((l) => ({ ...l, purchaseOrderLineId: null })));
+      return;
+    }
+
+    const po = openOrders.find((o) => o.id === nextPoId);
+    if (!po) return;
+
+    setSupplierId(po.supplierId);
+
+    if (!extractionId) {
+      setLines(buildLinesFromPo(po));
+    } else {
+      // Map already-extracted lines to matching PO lines by productId
+      setLines((prev) =>
+        prev.map((l) => {
+          const matchedPoLine = po.lines.find((pl) => pl.productId === l.productId);
+          return { ...l, purchaseOrderLineId: matchedPoLine?.id ?? null };
+        }),
+      );
+    }
+  };
+
+  const handleSupplierChange = (nextSupplierId: string) => {
+    setSupplierId(nextSupplierId);
+    if (selectedPo && selectedPo.supplierId !== nextSupplierId) {
+      setPurchaseOrderId('');
+      setLines((prev) => prev.map((l) => ({ ...l, purchaseOrderLineId: null })));
+    }
+  };
 
   // Handle Photo Upload & AI Extraction
   const handlePhotoSelected = async (file: File) => {
@@ -229,9 +312,15 @@ export function ReceiveForm({
                 ? ((l.unitPriceCents * Number(l.packCount)) / 100).toFixed(2)
                 : '';
 
+          const matchedPoLine =
+            selectedPo && l.selectedProductId
+              ? selectedPo.lines.find((pl) => pl.productId === l.selectedProductId)
+              : undefined;
+
           return {
             id: crypto.randomUUID(),
             productId: l.selectedProductId || '',
+            purchaseOrderLineId: matchedPoLine?.id ?? null,
             packCount: formattedPackCount,
             packQuantity: l.packQuantity || defaultPackQty,
             lineCostPesos,
@@ -285,7 +374,7 @@ export function ReceiveForm({
         if (l.id !== id) return l;
         const updated = { ...l, ...updates };
 
-        // If product changed, update default pack quantity and clear unselected/weak flags
+        // If product changed, update default pack quantity, clear flags, and match PO line if linked
         if (updates.productId) {
           const prod = products.find((p) => p.id === updates.productId);
           if (prod && !updated.packQuantity) {
@@ -293,6 +382,10 @@ export function ReceiveForm({
           }
           if (updated.flags) {
             updated.flags = updated.flags.filter((f) => f !== 'unmatched' && f !== 'weak_match');
+          }
+          if (selectedPo && updates.purchaseOrderLineId === undefined) {
+            const matchedPoLine = selectedPo.lines.find((pl) => pl.productId === updates.productId);
+            updated.purchaseOrderLineId = matchedPoLine?.id ?? null;
           }
         }
         return updated;
@@ -340,6 +433,7 @@ export function ReceiveForm({
         reference: reference.trim() || null,
         source: (photoUrl && extractionId ? 'ai_extraction' : 'manual') as 'ai_extraction' | 'manual',
         extractionId,
+        purchaseOrderId: purchaseOrderId || null,
         idempotencyKey,
         lines: lines.map((l) => {
           let lineCostCents: number | null = null;
@@ -350,6 +444,7 @@ export function ReceiveForm({
           return {
             productId: l.productId,
             supplierItemId: l.supplierItemId || null,
+            purchaseOrderLineId: l.purchaseOrderLineId || null,
             descriptionPrinted: l.descriptionPrinted || null,
             packCount: l.packCount,
             packQuantity: l.packQuantity,
@@ -373,11 +468,27 @@ export function ReceiveForm({
         return;
       }
 
-      setSuccessMessage('Delivery receipt successfully recorded and stock movements logged.');
-      setTimeout(() => {
-        router.push('/today');
-        router.refresh();
-      }, 1200);
+      const poSummary = result.data.poSummary;
+      if (poSummary) {
+        const statusLabel = poSummary.status === 'completed' ? 'Completed' : 'Partially Received';
+        const varianceNote =
+          poSummary.costVariances.length > 0
+            ? ` (${poSummary.costVariances.length} pack cost variance detected)`
+            : '';
+        setSuccessMessage(
+          `Delivery recorded and linked to ${poSummary.poNumber} — ${statusLabel}${varianceNote}.`,
+        );
+        setTimeout(() => {
+          router.push(`/orders/${poSummary.purchaseOrderId}`);
+          router.refresh();
+        }, 1200);
+      } else {
+        setSuccessMessage('Delivery receipt successfully recorded and stock movements logged.');
+        setTimeout(() => {
+          router.push('/today');
+          router.refresh();
+        }, 1200);
+      }
     } catch {
       setErrorMessage('An unexpected error occurred while saving the delivery.');
       setIsSubmitting(false);
@@ -739,9 +850,41 @@ export function ReceiveForm({
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] p-5 shadow-xs space-y-4">
-                  <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
-                    Delivery Details
-                  </h2>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
+                      Delivery Details
+                    </h2>
+                    {selectedPo && (
+                      <span className="inline-flex items-center gap-1.5 rounded bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        Linked to {selectedPo.poNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  {openOrders.length > 0 && (
+                    <div className="rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-paper)] p-3">
+                      <label htmlFor="purchaseOrderId" className="block text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
+                        Link to Open Purchase Order (Optional)
+                      </label>
+                      <select
+                        id="purchaseOrderId"
+                        value={purchaseOrderId}
+                        onChange={(e) => handlePurchaseOrderChange(e.target.value)}
+                        className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
+                      >
+                        <option value="">None — Standalone delivery receipt</option>
+                        {openOrders.map((po) => {
+                          const pendingCount = po.lines.filter((l) => Number(l.outstandingPackCount) > 0).length;
+                          return (
+                            <option key={po.id} value={po.id}>
+                              {po.poNumber} — {po.supplierName} ({pendingCount} {pendingCount === 1 ? 'item' : 'items'} pending)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {/* Supplier */}
@@ -752,7 +895,7 @@ export function ReceiveForm({
                       <select
                         id="supplierId"
                         value={supplierId}
-                        onChange={(e) => setSupplierId(e.target.value)}
+                        onChange={(e) => handleSupplierChange(e.target.value)}
                         required
                         className="mt-1 block w-full rounded-[var(--radius-field)] border border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)] focus:border-[var(--color-primary)] focus:outline-hidden"
                       >
@@ -828,6 +971,25 @@ export function ReceiveForm({
                       const tracksExpiry = prod?.tracksExpiry ?? false;
 
                       const totalBaseQty = (Number(line.packCount || 0) * Number(line.packQuantity || 0)).toString();
+
+                      const matchedPoLine = selectedPo
+                        ? selectedPo.lines.find(
+                            (pl) => pl.id === line.purchaseOrderLineId || pl.productId === line.productId,
+                          )
+                        : undefined;
+                      const poOutstandingNum = matchedPoLine ? Number(matchedPoLine.outstandingPackCount) : 0;
+                      const deliveredPacksNum = Number(line.packCount || 0);
+                      const isPoShort = Boolean(matchedPoLine && deliveredPacksNum > 0 && deliveredPacksNum < poOutstandingNum);
+                      const actualPackCostCents =
+                        line.lineCostPesos.trim() && deliveredPacksNum > 0
+                          ? Math.round(majorToCents(line.lineCostPesos) / deliveredPacksNum)
+                          : null;
+                      const hasPoCostVariance = Boolean(
+                        matchedPoLine &&
+                          matchedPoLine.agreedPackCostCents !== null &&
+                          actualPackCostCents !== null &&
+                          actualPackCostCents !== matchedPoLine.agreedPackCostCents,
+                      );
 
                       return (
                         <div
@@ -1038,6 +1200,25 @@ export function ReceiveForm({
                               {line.flags?.includes('missing_expiry') && (
                                 <span className="inline-flex items-center gap-1 text-rose-600 font-semibold">
                                   <AlertCircle className="h-3.5 w-3.5" /> Expiry date required for this item
+                                </span>
+                              )}
+
+                              {matchedPoLine && (
+                                <span className="inline-flex items-center gap-1 rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[11px] font-medium text-blue-800">
+                                  PO due: {cleanNumericString(matchedPoLine.outstandingPackCount)} packs
+                                </span>
+                              )}
+
+                              {isPoShort && (
+                                <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-300 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  <AlertTriangle className="h-3 w-3" /> Short vs. PO
+                                </span>
+                              )}
+
+                              {hasPoCostVariance && matchedPoLine?.agreedPackCostCents !== null && actualPackCostCents !== null && (
+                                <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-300 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Pack cost {formatCents(actualPackCostCents)} vs. {formatCents(matchedPoLine!.agreedPackCostCents)} agreed
                                 </span>
                               )}
                             </div>

@@ -4,23 +4,28 @@ import { getBusinessToday } from '@/lib/dates';
 import { requireSession } from '@/server/auth/guards';
 import { listProducts } from '@/server/catalogue/products';
 import { listSuppliers } from '@/server/catalogue/suppliers';
+import { getOpenPurchaseOrdersForReceiving } from '@/server/orders/orders';
 import { ReceiveForm } from '@/components/ledger/receive-form';
 
 interface ReceivePageProps {
   searchParams: Promise<{
     productId?: string;
     supplierId?: string;
+    poId?: string;
   }>;
 }
 
 export default async function ReceivePage({ searchParams }: ReceivePageProps) {
   await requireSession();
 
-  const { productId, supplierId } = await searchParams;
+  const { productId, supplierId, poId } = await searchParams;
 
   const today = getBusinessToday();
-  const suppliers = await listSuppliers({ activeOnly: true });
-  const products = await listProducts({ activeOnly: true });
+  const [suppliers, products, openOrders] = await Promise.all([
+    listSuppliers({ activeOnly: true }),
+    listProducts({ activeOnly: true }),
+    getOpenPurchaseOrdersForReceiving(),
+  ]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -74,9 +79,11 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
             tracksExpiry: p.tracksExpiry,
             shelfLifeDays: p.shelfLifeDays,
           }))}
+          openOrders={openOrders}
           defaultDate={today}
           initialSupplierId={supplierId}
           initialProductId={productId}
+          initialPoId={poId}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Calendar,
+  ClipboardList,
   Layers,
   MinusCircle,
   PackagePlus,
@@ -23,6 +24,7 @@ interface NavBarProps {
 const navItems = [
   { href: '/today', label: 'Today', icon: Calendar },
   { href: '/receive', label: 'Receive', icon: PackagePlus },
+  { href: '/orders', label: 'Orders', icon: ClipboardList },
   { href: '/use', label: 'Use', icon: MinusCircle },
   { href: '/waste', label: 'Waste', icon: Trash2 },
   { href: '/catalogue', label: 'Catalogue', icon: Layers },

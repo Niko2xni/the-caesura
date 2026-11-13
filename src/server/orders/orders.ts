@@ -434,3 +434,97 @@ export async function getPurchaseOrderDetail(purchaseOrderId: string): Promise<P
   };
 }
 
+export interface OpenPurchaseOrderLine {
+  id: string;
+  productId: string;
+  productName: string;
+  baseUnit: string;
+  supplierItemId: string | null;
+  packCount: string;
+  receivedPackCount: string;
+  outstandingPackCount: string;
+  packQuantity: string;
+  agreedPackCostCents: number | null;
+}
+
+export interface OpenPurchaseOrderForReceiving {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplierName: string;
+  orderDate: string;
+  expectedDeliveryDate: string | null;
+  status: 'submitted' | 'partially_received';
+  lines: OpenPurchaseOrderLine[];
+}
+
+/**
+ * Fetches open (submitted or partially_received) purchase orders with their line details
+ * for linking on the delivery receiving screen.
+ */
+export async function getOpenPurchaseOrdersForReceiving(): Promise<OpenPurchaseOrderForReceiving[]> {
+  const poRows = await db
+    .select({
+      id: purchaseOrders.id,
+      poNumber: purchaseOrders.poNumber,
+      supplierId: purchaseOrders.supplierId,
+      supplierName: suppliers.name,
+      orderDate: purchaseOrders.orderDate,
+      expectedDeliveryDate: purchaseOrders.expectedDeliveryDate,
+      status: purchaseOrders.status,
+    })
+    .from(purchaseOrders)
+    .innerJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+    .where(inArray(purchaseOrders.status, ['submitted', 'partially_received']))
+    .orderBy(desc(purchaseOrders.createdAt));
+
+  if (poRows.length === 0) return [];
+
+  const poIds = poRows.map((p) => p.id);
+  const lineRows = await db
+    .select({
+      id: purchaseOrderLines.id,
+      purchaseOrderId: purchaseOrderLines.purchaseOrderId,
+      productId: purchaseOrderLines.productId,
+      productName: products.name,
+      baseUnit: products.baseUnit,
+      supplierItemId: purchaseOrderLines.supplierItemId,
+      packCount: purchaseOrderLines.packCount,
+      receivedPackCount: purchaseOrderLines.receivedPackCount,
+      packQuantity: purchaseOrderLines.packQuantity,
+      agreedPackCostCents: purchaseOrderLines.agreedPackCostCents,
+    })
+    .from(purchaseOrderLines)
+    .innerJoin(products, eq(purchaseOrderLines.productId, products.id))
+    .where(inArray(purchaseOrderLines.purchaseOrderId, poIds))
+    .orderBy(products.name);
+
+  const linesByPo = new Map<string, OpenPurchaseOrderLine[]>();
+  for (const l of lineRows) {
+    const ordered = new Decimal(l.packCount);
+    const received = new Decimal(l.receivedPackCount);
+    const outstanding = Decimal.max(0, ordered.minus(received));
+
+    const list = linesByPo.get(l.purchaseOrderId) ?? [];
+    list.push({
+      id: l.id,
+      productId: l.productId,
+      productName: l.productName,
+      baseUnit: l.baseUnit,
+      supplierItemId: l.supplierItemId,
+      packCount: l.packCount,
+      receivedPackCount: l.receivedPackCount,
+      outstandingPackCount: outstanding.toFixed(3),
+      packQuantity: l.packQuantity,
+      agreedPackCostCents: l.agreedPackCostCents,
+    });
+    linesByPo.set(l.purchaseOrderId, list);
+  }
+
+  return poRows.map((po) => ({
+    ...po,
+    status: po.status as 'submitted' | 'partially_received',
+    lines: linesByPo.get(po.id) ?? [],
+  }));
+}
+
