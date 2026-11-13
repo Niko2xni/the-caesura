@@ -59,6 +59,13 @@
   1. 10 synthetic Philippine receipt templates rendered to high-resolution PNGs via system headless Edge (`msedge --headless --screenshot`) paired with ground-truth `*.expected.json` files.
   2. The eval script (`evals/run.ts`) supports both live AI Gateway calls and an offline deterministic replay benchmark that validates schema parsing, centavo conversion, trigram matching, and plausibility checks deterministically with zero token costs.
 
+### ADR-09: Purchase Order Row Locking & Physical vs. Intentional Separation
+- **Problem:** Concurrent or split deliveries against the same Purchase Order can race on `received_pack_count` increments, and ordered quantities must never create phantom inventory before goods physically arrive.
+- **Decision:**
+  1. `batches` and `stock_movements` strictly record physically delivered quantities (`receiveDelivery`), while `purchase_orders` and `purchase_order_lines` track procurement intent and fulfillment progress.
+  2. Linked deliveries execute `SELECT ... FOR UPDATE` on the parent PO row inside the atomic delivery transaction prior to receipt insertion, serializing split deliveries while preserving `idempotencyKey` deduplication.
+  3. Pack cost variances (`actualPackCostCents - agreedPackCostCents`) are computed deterministically in integer centavos using `decimal.js` (`ROUND_HALF_UP`).
+
 ---
 
 ## 2. Completed Milestones and Task Breakdown
@@ -68,8 +75,8 @@ Phase 0: Foundations          [COMPLETED]
 Phase 1: Core Ledger          [COMPLETED]
 Phase 2: Views & Alerts       [COMPLETED]
 Phase 3: AI Document Intake   [COMPLETED]
-Phase 4: Purchase Orders      [UP NEXT]
-Phase 5: Recipes & Sales      [PLANNED]
+Phase 4: Purchase Orders      [COMPLETED]
+Phase 5: Recipes & Sales      [UP NEXT]
 ```
 
 ### Phase 0: Foundations & Database Core
@@ -148,12 +155,29 @@ Phase 5: Recipes & Sales      [PLANNED]
   - 1-click sample delivery note presets on `/receive` dropzone for instant demo evaluation.
   - Aligned column heights and label baselines across review form line items (`13d1cd5`).
 
+### Phase 4: Purchase Orders (PO Procurement Lifecycle)
+- [x] **Step 4.1: PO Schema, Migration, Validators & Engine (`95e1555`)**
+  - Added `purchase_order_status` enum (`draft`, `submitted`, `partially_received`, `completed`, `cancelled`), `purchase_orders`, `purchase_order_lines`, and optional `receipts.purchase_order_id` (`0002_green_puma.sql`).
+  - Implemented sequential yearly PO number generator (`PO-YYYY-####`), atomic `createPurchaseOrder`, row-locked `cancelPurchaseOrder` guardrail, and list/detail queries (`src/server/orders/orders.ts`).
+- [x] **Step 4.2: Delivery Intake Linking & Variance Engine (`eea787e`)**
+  - Extended `receiveDelivery` to lock linked POs (`FOR UPDATE`), match lines, increment `received_pack_count`, detect pack-cost variances, and transition PO statuses (`partially_received` / `completed`).
+  - Verified idempotency, split deliveries, cost variance flags, and physical-vs-ordered stock separation in PostgreSQL integration tests (`ledger.test.ts`).
+- [x] **Step 4.3: Purchase Orders UI & `/receive` Integration (`c043673`, `eab040c`)**
+  - Added **Orders** navigation tab and `/orders`, `/orders/new`, and `/orders/[id]` routes with live ETA calculation, supplier-item presets, progress bars, short-delivery badges, and admin cancellation confirmation.
+  - Integrated `?poId=...` pre-fill, **Link to Open Purchase Order** selector, and inline short-delivery / pack-cost variance indicators on `/receive`.
+
 ---
 
 ## 3. Git Commit History Reference
 
 | Commit | Type | Description |
 |---|---|---|
+| `eab040c` | `fix(ui)` | Prevent navbar text wrapping and pluralize pack labels |
+| `c043673` | `feat(orders)` | Add purchase orders UI routes and `/receive` PO linking |
+| `eea787e` | `feat(ledger)` | Link delivery intake to purchase orders with row locking and variance detection |
+| `95e1555` | `feat(orders)` | Add purchase orders schema, migration, validators, and engine |
+| `d9854c1` | `feat(ui)` | Add dedicated AI extraction progress card, photo scanner badge, and shimmer skeleton state |
+| `cb8ea2e` | `fix(receive)` | Prevent silent fallback to `products[0]`, surface unmatched badge, and show single candidate pills |
 | `e479470` | `feat` | Add side-by-side photo intake review UI and supplier alias learning loop |
 | `60c4d83` | `feat(evals)` | Add synthetic delivery receipt fixtures, eval runner, accuracy report, and demo sample loader |
 | `83c4996` | `fix(evals)` | Distinguish offline replay benchmark from live gateway calls in reports |
@@ -170,21 +194,14 @@ Phase 5: Recipes & Sales      [PLANNED]
 
 ## 4. Verification & Quality Metrics
 
-- **Unit & Integration Test Suite:** 12 test files, 103 passed tests (`vitest run`).
+- **Unit & Integration Test Suite:** 13 test files, 113 passed tests (`vitest run`).
 - **Type Safety:** Zero TypeScript errors (`tsc --noEmit`).
 - **Linting:** Zero ESLint warnings or errors (`eslint .`).
-- **Production Build:** Next.js Turbopack compilation clean across all 13 routes.
 - **Extraction Benchmark:** 100% pass rate across 10/10 synthetic delivery note fixtures.
 
 ---
 
 ## 5. Upcoming Roadmap
-
-### Phase 4: Purchase Orders (PO Procurement Lifecycle)
-1. **PO Management Schema:** `purchase_orders` and `purchase_order_lines` (supplier, expected delivery date, ordered pack counts, negotiated pack costs).
-2. **Delivery Matching:** Link incoming delivery receipts (manual or photo-extracted) to an open PO.
-3. **Short-Delivery & Cost Variance Flags:** Deterministically flag discrepancies between ordered vs delivered quantities and price increases.
-4. **PO Status Transitions:** `draft` $\rightarrow$ `submitted` $\rightarrow$ `partially_received` $\rightarrow$ `completed` / `closed`.
 
 ### Phase 5: Recipes & POS Sales Depletion
 1. **Menu Item Recipes:** Ingredient bill of materials (e.g., 18g espresso beans + 220ml whole milk per 8oz Flat White).
